@@ -5,7 +5,7 @@
 @ClientDependent: false                                                                              
 @AccessControl.authorizationCheck: #NOT_REQUIRED                                                            
 @AbapCatalog.compiler.compareFilter: true                                                            
-@EndUserText.label: 'BPC Dimensions Usage'                                               
+@EndUserText.label: 'Dimensions Used In DUMMYs Models'                                               
 define view ZBPC_DIMAPP as select from uja_dimension as D                                            
 inner join uja_dim_appl as DA                                                                        
     on D.mandt = DA.mandt                                                                            
@@ -15,12 +15,23 @@ inner join uja_dimensiont as TX on D.mandt = TX.mandt
 and D.appset_id = TX.appset_id                                                                       
 and D.dimension = TX.dimension                                                                       
 and TX.langu = 'E'                                                                                   
-left outer join dd07v as VD on D.dim_type = VD.domvalue_l and VD.domname='UJ_DIM_TYPE' and VD.ddlanguage = 'E'                                                                                           
+left outer join dd07v as VD on D.dim_type = VD.domvalue_l and VD.domname='UJ_DIM_TYPE' and VD.ddlanguage = 'E'
+inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id and DA.application_id = MD.application_id                                                                                           
      {                                                                                               
     key substring(D.tech_name,7,12) as technical_name,     
     D.tech_name,                            
     D.appset_id,                                                                                     
-    DA.application_id,                                                                               
+    DA.application_id,
+    case 
+    when MD.application_type = '1' then 'Generic'
+    when MD.application_type = '2' then 'Exchange Rates'
+    when MD.application_type = '3' then 'Ownership'
+    when MD.application_type = '4' then 'Standard'
+    when MD.application_type = '5' then 'Finance'
+    when MD.application_type = '6' then 'Consolidation'
+    else 'Unknown'
+    end as app_type,              
+    MD.storage_type,                                                                         
     D.dimension,                                                                                     
     TX.description,                                                                                  
     D.ref_dim,                                                                                       
@@ -51,8 +62,15 @@ left outer join dd07v as VD on D.dim_type = VD.domvalue_l and VD.domname='UJ_DIM
     D.struc_modif_time,                                                                              
     D.mbr_modif_date,                                                                                
     D.mbr_modif_time,                                                                                
-    D.tda_table,                                                                                     
+    D.tda_table, 
+    MD.intercompany,
+    MD.fx_trans,
+    MD.rate_application,
+    MD.ownership_appl,
+    MD.journal,
+    MD.audit_on,
+    MD.bexvcube,
+    MD.infocube,                                                                                    
     @DefaultAggregation: #SUM                                                                        
     cast(cast(1 as abap.int4) as rvcounter) as counter                                               
 }                                                                                                    
-where D.appset_id = 'TRACTEBEL_GLO'
