@@ -1,0 +1,58 @@
+@AbapCatalog.sqlViewName: 'ZBPCDIMAPP'                                                               
+@Analytics: { dataCategory: #DIMENSION,                                                              
+              dataExtraction.enabled: true }                                                         
+@ObjectModel.representativeKey: 'bpcDimension'                                                       
+@ClientDependent: false                                                                              
+@AccessControl.authorizationCheck: #NOT_REQUIRED                                                            
+@AbapCatalog.compiler.compareFilter: true                                                            
+@EndUserText.label: 'BPC Dimensions Usage'                                               
+define view ZBPC_DIMAPP as select from uja_dimension as D                                            
+inner join uja_dim_appl as DA                                                                        
+    on D.mandt = DA.mandt                                                                            
+    and D.appset_id = DA.appset_id                                                                   
+    and D.dimension = DA.dimension                                                                   
+inner join uja_dimensiont as TX on D.mandt = TX.mandt                                                
+and D.appset_id = TX.appset_id                                                                       
+and D.dimension = TX.dimension                                                                       
+and TX.langu = 'E'                                                                                   
+left outer join dd07v as VD on D.dim_type = VD.domvalue_l and VD.domname='UJ_DIM_TYPE' and VD.ddlanguage = 'E'                                                                                           
+     {                                                                                               
+    key substring(D.tech_name,7,12) as technical_name,     
+    D.tech_name,                            
+    D.appset_id,                                                                                     
+    DA.application_id,                                                                               
+    D.dimension,                                                                                     
+    TX.description,                                                                                  
+    D.ref_dim,                                                                                       
+    D.data_table as masterdata_table,                                                                
+    D.desc_table as text_tabl,                                                                       
+    D.hier_data_table as hier_table,                                                                 
+            substring(D.tech_name,1,6) as name_space,                                                
+    DA.secure                                                                                        
+    ,VD.ddtext as Dim_Type,                                                                          
+    DA.rw,                                                                                           
+    DA.def_report_mbr,                                                                               
+    DA.def_input_mbr,                                                                                
+    DA.display_dim,                                                                                  
+    DA.display_dim_name,                                                                             
+    DA.member_display,                                                                               
+    D.dim_type_index,                                                                                
+    D.num_hier,                                                                                      
+    D.server_version,                                                                                
+    D.file_version,                                                                                  
+    D.file_lock,                                                                                     
+    D.process_state,                                                                                 
+    D.locked_by,                                                                                     
+    D.caption,                                                                                       
+    D.hier_time_dep,                                                                                 
+    D.process_date,                                                                                  
+    D.process_time,                                                                                  
+    D.struc_modif_date,                                                                              
+    D.struc_modif_time,                                                                              
+    D.mbr_modif_date,                                                                                
+    D.mbr_modif_time,                                                                                
+    D.tda_table,                                                                                     
+    @DefaultAggregation: #SUM                                                                        
+    cast(cast(1 as abap.int4) as rvcounter) as counter                                               
+}                                                                                                    
+where D.appset_id = 'TRACTEBEL_GLO'
