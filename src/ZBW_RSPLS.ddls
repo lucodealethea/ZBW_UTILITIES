@@ -1,0 +1,46 @@
+@AbapCatalog.sqlViewName: 'ZVBW_RSPLS'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'RSPLS Planning Functions, Steps etc'
+define view ZBW_RSPLS as select distinct from rspls_sequence as S
+left outer join rspls_sequencet as T
+    on S.seqnm = T.seqnm and S.objvers = T.objvers and T.langu = 'E'
+left outer join rspls_sequence_s as M 
+    on S.seqnm = M.seqnm and S.objvers = M.objvers
+left outer join rspls_alvl as L on M.aggrlevel = L.aggrlevel
+inner join rspls_alvlt as LT on L.aggrlevel = LT.aggrlevel and L.objvers = LT.objvers and LT.langu = 'E'
+left outer join rszcompdir as ZC on M.selobj = ZC.compid
+inner join rszelttxt as ZCT on ZCT.eltuid = ZC.compuid and ZCT.objvers = ZC.objvers and ZCT.langu = 'E'      
+left outer join rsplf_srv as PF on M.srvnm = PF.srvnm and M.objvers = PF.objvers
+inner join rsplf_srvt as PFT on PF.srvnm = PFT.srvnm and PF.objvers = PFT.objvers and PFT.langu = 'E'
+    {
+    key S.seqnm,
+    key S.objvers,
+    key M.stepid,
+    T.txtlg as seqnm_desc,
+    ZC.compid,
+    ZCT.txtlg as COMPID_DESC,
+    L.aggrlevel,
+    LT.txtlg as AL_DESC,
+    M.srvnm,
+    PFT.txtlg as PF_DESC,
+    PF.infoprov,
+    PF.srvtypenm,
+    PF.activfl,
+    PF.objstat as PF_STATUS,
+    PF.contrel,
+    PF.conttimestmp,
+    ZC.compuid,
+    S.tstpnm,
+    S.timestmp,
+    S.objstat,
+    S.contrel as SEQ_CONTREL,
+    S.conttimestmp as SEQ_TMSTMP,
+    S.owner,
+    S.bwappl,
+    S.activfl as SEQ_CHECK,
+    S.infoarea
+    
+    
+}
