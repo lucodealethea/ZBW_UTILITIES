@@ -1,0 +1,38 @@
+@AbapCatalog.sqlViewName: 'ZVBW_RSZ_DETAIL'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'RSZCOMPDIR References'
+define view ZBW_RSZ_DETAIL as select from rszcompdir as M
+left outer join rszeltxref as X
+    on X.seltuid = M.compuid and X.objvers = M.objvers and M.objvers = 'A'
+    // and T.langu = 'E'
+left outer join rszselect as S 
+    on S.eltuid = X.teltuid and S.objvers = X.objvers and S.objvers = 'A'
+left outer join rszeltdir as D on M.compuid = D.eltuid and D.objvers = 'A'
+left outer join rszelttxt as ZCT on ZCT.eltuid = M.compuid and ZCT.objvers = M.objvers
+left outer join rszrange as R on R.eltuid = X.teltuid and R.objvers = 'A'
+and ZCT.objvers = 'A'
+and ZCT.langu = 'E'
+left outer join rszglobv as V on R.low = V.varuniid and V.objvers = 'A'       
+    {
+key M.compuid,
+key M.compid,
+key R.iobjnm,
+//key X.seltuid,
+key X.teltuid,
+key X.posn,
+R.seltp,
+R.sign,
+R.opt,
+R.low,
+R.high,
+V.vnam,
+V.vartyp,
+V.vproctp,
+ZCT.txtlg,
+X.laytp,
+X.infocube
+
+}
+where X.posn <> 0
