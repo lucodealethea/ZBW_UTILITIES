@@ -1,0 +1,51 @@
+@AbapCatalog.sqlViewName: 'ZVBW_RSPLS_EXT'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Extended Planning Sequences'
+define view ZBW_RSPLS_EXT
+as select from zvbw_rspls as PS 
+left outer join zvbw_rsz_detail as D 
+on D.compid = PS.compid and D.compuid = PS.compuid and PS.objvers = 'A'
+ {
+key PS.seqnm,
+    PS.objvers,
+    PS.stepid,
+    PS.seqnm_desc,
+    PS.compid,
+    PS.compid_desc,
+    PS.aggrlevel,
+    PS.al_desc,
+    PS.srvnm,
+    PS.pf_desc,
+    PS.infoprov,
+    PS.srvtypenm,
+    PS.activfl,
+    PS.pf_status,
+    PS.contrel,
+    PS.conttimestmp,
+    PS.compuid,
+    D.iobjnm,
+    D.teltuid,
+    D.posn,
+    D.seltp,
+    D.sign,
+    D.opt,
+    D.low,
+    D.high,
+    D.vnam,
+    D.vartyp,
+    D.vproctp,
+    D.txtlg,
+    D.laytp,
+    D.infocube,
+    PS.tstpnm,
+    PS.timestmp,
+    PS.objstat,
+    PS.seq_contrel,
+    PS.seq_tmstmp,
+    PS.owner,
+    PS.bwappl,
+    PS.seq_check,
+    PS.infoarea   
+}
