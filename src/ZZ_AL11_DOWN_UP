@@ -1,0 +1,369 @@
+*&---------------------------------------------------------------------*
+*& Report ZZ_ALL11_UP_DOWN
+*&---------------------------------------------------------------------*
+*& Can be used with the help of RSBDCOS0 - touch to create empty files
+*&---------------------------------------------------------------------*
+REPORT zz_al11_down_up.
+
+TABLES: rovertable.
+*INCLUDE ZZ_AL11_TOP.
+CONSTANTS: c_execute_command  TYPE sy-ucomm VALUE 'ONLI'.
+
+SELECTION-SCREEN BEGIN OF BLOCK 1 WITH FRAME TITLE lv_t1.
+PARAMETERS gv_rb1 TYPE c RADIOBUTTON GROUP butt DEFAULT 'X'.
+PARAMETERS gv_rb2 TYPE c RADIOBUTTON GROUP butt.
+PARAMETERS gv_rb3 TYPE c RADIOBUTTON GROUP butt.
+SELECTION-SCREEN END OF BLOCK 1.
+
+SELECT-OPTIONS: so_asfil FOR rovertable-filename NO INTERVALS. "RLGRAP-FILENAME.
+PARAMETERS: p_out TYPE string DEFAULT 'C:\Temp' LOWER CASE.
+
+
+PARAMETERS: p_addext TYPE c AS CHECKBOX DEFAULT ''.
+
+DATA: ls_asfil LIKE LINE OF so_asfil,
+      ls_subrc TYPE sy-subrc.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_out.
+  DATA:lv_selected_folder TYPE string.
+  CALL METHOD cl_gui_frontend_services=>directory_browse
+    CHANGING
+      selected_folder      = lv_selected_folder
+    EXCEPTIONS
+      cntl_error           = 1
+      error_no_gui         = 2
+      not_supported_by_gui = 3
+      OTHERS               = 4.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+               WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+  p_out = lv_selected_folder.
+
+AT SELECTION-SCREEN.
+  IF sy-ucomm = c_execute_command.
+    PERFORM check_directory.
+  ENDIF.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR so_asfil-low.
+*******************
+  PERFORM z30_get_filename CHANGING so_asfil-low.
+
+START-OF-SELECTION.
+*If Download to Desktop is selected
+IF gv_rb1 = 'X'.
+ LOOP AT so_asfil INTO ls_asfil.
+ PERFORM download USING ls_asfil-low p_out.
+ PERFORM show_msg.
+ENDLOOP.
+
+ELSEIF gv_rb2 = 'X'. "Upload To Application Server is selected
+
+LOOP AT so_asfil INTO ls_asfil.
+
+PERFORM upload USING ls_asfil-low p_out ls_subrc.
+PERFORM show_upd_msg USING ls_subrc.
+ENDLOOP.
+
+ELSEIF gv_rb3 = 'X'. "Delete Files From Application Server is selected
+
+LOOP AT so_asfil INTO ls_asfil.
+  PERFORM delete_from_as USING ls_asfil-low ls_subrc.
+  PERFORM show_del_msg USING ls_subrc.
+ENDLOOP.
+ENDIF.
+
+FORM delete_from_as USING
+      pv_dimfile TYPE localfile
+      CHANGING lv_subrc TYPE sy-subrc.
+* trim the path out of filename
+* .//BU_LINE -> BU_LINE
+DATA:
+filesize TYPE epsf-epsfilsiz,
+filenm TYPE epsfilnam, "eps2filnam i/o epsfilnam 40 tooshort but doesn't fit EPS_GET_FILE_ATTRIBUTES
+nfilenm TYPE eps2filnam,
+filepath TYPE epsdirnam, "epsdirnam 60
+nfilepath TYPE EPS2PATH,
+lv_string TYPE string, " VALUE './/BU_LINE',
+lv_len TYPE i,
+lv_pos TYPE i,
+lv_last_occ TYPE i.
+
+MOVE pv_dimfile TO lv_string.
+
+lv_len = strlen( lv_string ).
+DO.
+SEARCH lv_string FOR '/'.
+IF sy-subrc = '0'.
+lv_pos = sy-fdpos + 1.
+lv_len = lv_len - sy-fdpos - 1.
+lv_string = lv_string+lv_pos(lv_len).
+lv_last_occ = lv_last_occ + sy-fdpos + 1. "last occurence number
+ELSE.
+EXIT.
+ENDIF.
+ENDDO.
+* file name is
+filenm = lv_string.
+nfilenm = lv_string.
+* path is
+filepath = pv_dimfile(lv_last_occ).
+
+if lv_len LE 40.
+
+* check file existence > issue with SMART filenames > 40 char
+  CALL FUNCTION 'EPS_GET_FILE_ATTRIBUTES'
+   EXPORTING
+     file_name                     = filenm
+*     iv_long_file_name            = filenm
+     dir_name                     = filepath
+*     IV_LONG_DIR_NAME             = filepath
+   IMPORTING
+     file_size                    = filesize
+   EXCEPTIONS
+     read_directory_failed        = 1
+     read_attributes_failed       = 2
+     OTHERS                       = 3
+            .
+
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+   lv_subrc = sy-subrc.
+  ELSE.
+
+  CALL FUNCTION 'EPS_DELETE_FILE'
+   EXPORTING
+     file_name                    = filenm "VERSION
+     dir_name                     =  filepath ".// when BPC Dimension
+           .
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+    lv_subrc = sy-subrc.
+  ENDIF.
+
+  ENDIF.
+  ELSE. "filenm length > 40
+* delete file
+  CONCATENATE  filepath nfilenm INTO nfilepath.
+
+  delete dataset nfilepath.
+      lv_subrc = sy-subrc.
+  if sy-subrc <> 0.
+    raise delete_failed.
+  endif.
+  ENDIF.
+
+ENDFORM.
+
+FORM show_msg.
+  MESSAGE s398(00) WITH TEXT-004."Files downloaded successfully!
+ENDFORM.                    "show_msg
+
+
+FORM show_upd_msg USING p_subrc TYPE sy-subrc.
+  IF p_subrc = 0.
+  MESSAGE s398(00) WITH TEXT-003."Files Uploaded successfully!
+  ELSE.
+  MESSAGE s398(00) WITH TEXT-002."Error at Uploading Files!
+  ENDIF.
+ENDFORM.                    "show_msg
+
+FORM show_del_msg USING p_subrc TYPE sy-subrc.
+  IF p_subrc = 0.
+  MESSAGE s398(00) WITH TEXT-005."Files deleted successfully!
+  ELSE.
+  MESSAGE s398(00) WITH TEXT-006."Error in Files Deletion!
+
+  ENDIF.
+ENDFORM.                    "show_del_msg
+
+
+FORM upload USING pv_dimfile TYPE localfile
+      out_path TYPE string
+      CHANGING lv_subrc TYPE sy-subrc.
+
+DATA: lv_dimfile TYPE sapb-sappfad,
+      ls_out_path TYPE sapb-sappfad,
+      lv_out_path TYPE sapb-sappfad.
+DATA:
+filesize TYPE epsf-epsfilsiz,
+filenm TYPE epsfilnam,
+filepath TYPE epsdirnam,
+lv_string TYPE string, " VALUE './/BU_LINE',
+lv_len TYPE i,
+lv_pos TYPE i,
+lv_last_occ TYPE i.
+
+MOVE: pv_dimfile TO lv_string,
+      out_path TO ls_out_path.
+
+lv_len = strlen( lv_string ).
+DO.
+SEARCH lv_string FOR '/'.
+IF sy-subrc = '0'.
+lv_pos = sy-fdpos + 1.
+lv_len = lv_len - sy-fdpos - 1.
+lv_string = lv_string+lv_pos(lv_len).
+lv_last_occ = lv_last_occ + sy-fdpos + 1. "last occurence number
+ELSE.
+EXIT.
+ENDIF.
+ENDDO.
+
+if lv_last_occ <> 0.
+* target path should retrieved from F4
+filepath = pv_dimfile(lv_last_occ).
+else.
+filepath = ls_out_path.
+endif.
+
+* file name is
+filenm = lv_string.
+
+CONCATENATE out_path filenm INTO ls_out_path SEPARATED BY '\'.
+MOVE: pv_dimfile TO lv_out_path,
+      ls_out_path TO lv_dimfile.
+
+IF p_addext = 'X'.
+CONCATENATE lv_dimfile '.txt' INTO lv_dimfile.
+CONCATENATE lv_out_path '.txt' INTO lv_out_path.
+ENDIF.
+
+CALL FUNCTION 'ARCHIVFILE_CLIENT_TO_SERVER'
+  EXPORTING
+    path                  = lv_dimfile
+    targetpath            = lv_out_path
+ EXCEPTIONS
+   error_file             = 1
+   no_authorization       = 2
+   OTHERS                 = 3.
+
+lv_subrc = sy-subrc.
+CLEAR: lv_last_occ, lv_string, lv_len, lv_pos, filenm, filepath, lv_dimfile, lv_out_path, ls_out_path.
+ENDFORM.                 "form upload
+*&---------------------------------------------------------------------*
+*&      Form  download
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM download USING
+      pv_dimfile TYPE localfile
+      out_path TYPE string.
+
+  DATA:lv_path LIKE sapb-sappfad VALUE '',
+       lv_targetpath LIKE sapb-sappfad,
+       lv_ot_filename TYPE string.
+
+  DATA: moff TYPE i,
+        mlen TYPE i.
+  CLEAR: moff, mlen.
+
+  CONCATENATE lv_path pv_dimfile INTO lv_path.
+
+FIND REGEX '\/(?:.(?!\/))+$' IN pv_dimfile MATCH OFFSET moff MATCH LENGTH mlen.
+moff = moff + 1.
+
+pv_dimfile = pv_dimfile+moff.
+
+IF pv_dimfile(1) = '/'.
+  pv_dimfile = pv_dimfile+1.
+   ENDIF.
+
+  IF p_addext = 'X'.
+  CONCATENATE pv_dimfile '.txt' INTO pv_dimfile.
+  ENDIF.
+
+
+  CONCATENATE out_path pv_dimfile INTO lv_targetpath SEPARATED BY '\'.
+
+  CALL FUNCTION 'ARCHIVFILE_SERVER_TO_CLIENT'
+    EXPORTING
+      path       = lv_path
+      targetpath = lv_targetpath
+    EXCEPTIONS
+      error_file = 1
+      OTHERS     = 2.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+ENDFORM.                    "download
+
+*&---------------------------------------------------------------------*
+*&      Form  check_directory
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM check_directory.
+  DATA: lv_result TYPE c,
+        lv_directory TYPE string.
+  lv_directory = p_out.
+  CALL METHOD cl_gui_frontend_services=>directory_exist
+    EXPORTING
+      directory            = lv_directory
+    RECEIVING
+      result               = lv_result
+    EXCEPTIONS
+      cntl_error           = 1
+      error_no_gui         = 2
+      wrong_parameter      = 3
+      not_supported_by_gui = 4
+      OTHERS               = 5.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+               WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+  IF lv_result IS INITIAL.
+    MESSAGE e398(00) WITH TEXT-001."The output directory does not exist!
+  ENDIF.
+ENDFORM.                    "check_directory
+
+*&---------------------------------------------------------------------*
+*&      Form  Z30_GET_FILENAME
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM z30_get_filename CHANGING p_file.
+*-------------------*
+  DATA: lt_files       TYPE filetable,
+        ls_file        TYPE file_table,
+        lv_lfile       TYPE string,
+        lv_rc          TYPE i,
+        lv_applserv    TYPE as4flag,
+        lv_al11        TYPE as4flag,
+        lv_initial_dir TYPE string,
+        lv_guiext      TYPE string,
+        lv_guiflt      TYPE string,
+        lv_title       TYPE string.
+
+*  CASE 'X'.
+*    WHEN p_pc.             " Files from PC or Network
+*      lv_initial_dir = 'My Documents'.
+*    WHEN p_unix.           " Files from Sap Server
+*      lv_applserv = 'X'.
+*      lv_al11     = 'X'.
+*    WHEN OTHERS.
+*  ENDCASE.
+
+  lv_lfile = p_file.
+  CALL METHOD cl_rsan_ut_files=>f4
+    EXPORTING
+      i_applserv         = 'X' "lv_applserv'
+      i_title            = lv_title
+      i_gui_extension    = lv_guiext
+      i_gui_ext_filter   = lv_guiflt
+      i_applserv_logical = space
+      i_applserv_al11    = 'X' "lv_al11'
+    CHANGING
+      c_file_name        = lv_lfile
+    EXCEPTIONS
+      failed             = 1
+      OTHERS             = 2.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+               WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+  p_file = lv_lfile.
+ENDFORM.                    " Z30_GET_FILENAME
