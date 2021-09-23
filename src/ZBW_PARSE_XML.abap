@@ -8,6 +8,10 @@ REPORT zbw_parse_xml.
 * DATA DECLARATION
 
 ***********************************************************************
+TYPES: BEGIN OF ty_iobj,
+          iobjnm       TYPE rsdiobjnm,
+          TXTLG        TYPE rstxtlg,
+        END OF ty_iobj.
 
 TYPES: BEGIN OF ty_output,
           infoprovider TYPE rsdodsobject,
@@ -20,9 +24,11 @@ TYPES: BEGIN OF ty_output2,
         END OF ty_output2.
 
 TYPES: BEGIN OF ty_output3,
-          object TYPE rsdodsobject,
-          source       TYPE rsdiobjnm,
-          target       TYPE rsohcprcolnm,
+          object TYPE rsdha_haapnm,
+          text TYPE rstxtlg,
+          source TYPE rsfieldnm,
+          target TYPE rsdiobjnm,
+          desc   TYPE rstxtlg,
         END OF ty_output3.
 
 DATA: l_hobj_xml_def TYPE xstring,
@@ -31,6 +37,10 @@ DATA: l_hobj_xml_def TYPE xstring,
        lt_output      TYPE STANDARD TABLE OF ty_output,
        lt_output2     TYPE STANDARD TABLE OF ty_output2,
        lt_output3     TYPE STANDARD TABLE OF ty_output3,
+
+       lt_iobj        TYPE STANDARD TABLE OF ty_iobj,
+       lt_iobjnm        TYPE STANDARD TABLE OF ty_iobj,
+       ls_iobj        type ty_iobj,
        l_cvalue       TYPE char255,
        l_offset       TYPE i,
        l_output       TYPE ty_output,
@@ -39,7 +49,8 @@ DATA: l_hobj_xml_def TYPE xstring,
        lv_flg_hcpr    TYPE flag VALUE 'X',
        lv_flg_adso    TYPE flag VALUE '',
        lv_flg_haap    TYPE flag VALUE '',
-       lv_idx_collect_haap TYPE sy-tabix.
+       lv_idx_proj_map TYPE sy-tabix,
+       lv_idx_main_map TYPE sy-tabix.
 
 ************************************************************************
 
@@ -50,10 +61,12 @@ DATA: l_hobj_xml_def TYPE xstring,
 DATA: go_alv     TYPE REF TO cl_salv_table,
        go_columns TYPE REF TO cl_salv_columns,
        go_funcs   TYPE REF TO cl_salv_functions,
-       go_ex      TYPE REF TO cx_root.
+       go_ex      TYPE REF TO cx_root,
+       s_xml_info TYPE smum_xmltb.
 
-FIELD-SYMBOLS: <fs_xml_info> TYPE smum_xmltb,
-                <fs_any_tab>      TYPE any.
+FIELD-SYMBOLS: <fs_xml_info>     TYPE smum_xmltb,
+                <fs_any_tab>     TYPE any,
+                <fs_output3>     TYPE ty_output3.
 ************************************************************************
 
 * SELECTION SCREEN DETAILS
@@ -166,29 +179,67 @@ ELSEIF lv_flg_haap = 'X'.
      TABLES
        xml_table = lt_xml_info
        return    = lt_return.
-* Pick-Up index for
-CLEAR:lv_idx_collect_haap.
-   READ TABLE lt_xml_info ASSIGNING <fs_xml_info> WITH KEY cvalue = '0BW_TGT_INFOSOURCE'.
-
-   IF SY-SUBRC = 0.
-    lv_idx_collect_haap = sy-tabix.
+* Pick-up index for projection mapping
+   CLEAR: lv_idx_proj_map, ls_iobj.
+   REFRESH : lt_iobj.
+   READ TABLE lt_xml_info ASSIGNING <fs_xml_info> WITH KEY cvalue = '0BW_PROJECTION'.
+   IF sy-subrc = 0.
+    lv_idx_proj_map = sy-tabix.
    ENDIF.
-* Internal table with mapping
-l_output3-object = '0BW_TGT_INFOSOURCE'.
+
+* Pick-Up index for main mapping
+   CLEAR:lv_idx_main_map.
+   LOOP AT lt_xml_info INTO s_xml_info WHERE cvalue = '0BW_TGT_INFOSOURCE' OR  cvalue = '0BW_TGT_INFOPROV'.
+   IF sy-subrc = 0.
+    lv_idx_main_map = sy-tabix.
+   ENDIF.
+   ENDLOOP.
+* Internal table with 0BW_TGT_INFOSOURCE mapping
+   l_output3-object = s_xml_info-cvalue.
+* Pick-up the main description
+   READ TABLE lt_xml_info ASSIGNING <fs_xml_info> WITH KEY cname = 'description'.
+   IF sy-subrc = 0.
+   l_output3-text = <fs_xml_info>-cvalue.
+   ENDIF.
    LOOP AT lt_xml_info ASSIGNING <fs_xml_info>.
-    IF sy-tabix > lv_idx_collect_haap.
+    IF sy-tabix > lv_idx_main_map.
+     IF <fs_xml_info>-cname = 'sourceFieldName'.
+       l_output3-source = <fs_xml_info>-cvalue.
+     ELSEIF <fs_xml_info>-cname = 'targetFieldName'.
+       l_output3-target = <fs_xml_info>-cvalue.
+       APPEND l_output3 TO lt_output3.
+       ls_iobj-iobjnm = <fs_xml_info>-cvalue.
+       COLLECT ls_iobj INTO lt_iobj.
+     ENDIF.
+    ENDIF.
+   ENDLOOP.
+l_output3-object = '0BW_PROJECTION'.
+   LOOP AT lt_xml_info ASSIGNING <fs_xml_info>.
+    IF sy-tabix BETWEEN lv_idx_proj_map AND lv_idx_main_map.
      IF <fs_xml_info>-cname = 'sourceFieldName'.
        l_output3-source = <fs_xml_info>-cvalue.
      ELSEIF <fs_xml_info>-cname = 'targetFieldName'.
        l_output3-target = <fs_xml_info>-cvalue.
            APPEND l_output3 TO lt_output3.
      ENDIF.
-
     ENDIF.
    ENDLOOP.
    DELETE ADJACENT DUPLICATES FROM lt_output3.
 ENDIF.
-break BB5827.
+
+* get InfoObject Description
+SELECT * FROM RSDIOBJT
+INTO CORRESPONDING FIELDS OF TABLE @lt_iobjnm
+FOR ALL ENTRIES IN @lt_iobj
+WHERE IOBJNM = @lt_iobj-iobjnm and LANGU = 'E'.
+
+LOOP AT lt_output3 ASSIGNING <fs_output3>.
+READ TABLE lt_iobjnm INTO ls_iobj WITH KEY iobjnm = <fs_output3>-target.
+IF SY-subrc = 0.
+<fs_output3>-desc = ls_iobj-txtlg.
+ENDIF.
+ENDLOOP.
+
 * Output to ALV
 TRY.
      cl_salv_table=>factory(
