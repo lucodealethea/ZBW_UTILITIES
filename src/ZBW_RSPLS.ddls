@@ -44,3 +44,71 @@ inner join rsplf_srvt as PFT on PF.srvnm = PFT.srvnm and PF.objvers = PFT.objver
     
     
 }
+---------------------------generated sql---------------------------
+SELECT 
+  DISTINCT "S"."SEQNM", 
+  "S"."OBJVERS", 
+  "M"."STEPID", 
+  "T"."TXTLG" AS "SEQNM_DESC", 
+  "ZC"."COMPID", 
+  "ZCT"."TXTLG" AS "COMPID_DESC", 
+  "L"."AGGRLEVEL", 
+  "LT"."TXTLG" AS "AL_DESC", 
+  "M"."SRVNM", 
+  "PFT"."TXTLG" AS "PF_DESC", 
+  "PF"."INFOPROV", 
+  "PF"."SRVTYPENM", 
+  "PF"."ACTIVFL", 
+  "PF"."OBJSTAT" AS "PF_STATUS", 
+  "PF"."CONTREL", 
+  "PF"."CONTTIMESTMP", 
+  "ZC"."COMPUID", 
+  "S"."TSTPNM", 
+  "S"."TIMESTMP", 
+  "S"."OBJSTAT", 
+  "S"."CONTREL" AS "SEQ_CONTREL", 
+  "S"."CONTTIMESTMP" AS "SEQ_TMSTMP", 
+  "S"."OWNER", 
+  "S"."BWAPPL", 
+  "S"."ACTIVFL" AS "SEQ_CHECK", 
+  "S"."INFOAREA" 
+FROM ( 
+  ( 
+    ( 
+      ( 
+        ( 
+          ( 
+            ( 
+              "RSPLS_SEQUENCE" "S" LEFT OUTER JOIN "RSPLS_SEQUENCET" "T" ON ( 
+                "S"."SEQNM" = "T"."SEQNM" AND 
+                "S"."OBJVERS" = "T"."OBJVERS" AND 
+                "T"."LANGU" = N'E' 
+              ) 
+            ) LEFT OUTER JOIN "RSPLS_SEQUENCE_S" "M" ON ( 
+              "S"."SEQNM" = "M"."SEQNM" AND 
+              "S"."OBJVERS" = "M"."OBJVERS" 
+            ) 
+          ) LEFT OUTER JOIN "RSPLS_ALVL" "L" ON 
+            "M"."AGGRLEVEL" = "L"."AGGRLEVEL" 
+          ) INNER JOIN "RSPLS_ALVLT" "LT" ON ( 
+            "L"."AGGRLEVEL" = "LT"."AGGRLEVEL" AND 
+            "L"."OBJVERS" = "LT"."OBJVERS" AND 
+            "LT"."LANGU" = N'E' 
+          ) 
+        ) LEFT OUTER JOIN "RSZCOMPDIR" "ZC" ON 
+          "M"."SELOBJ" = "ZC"."COMPID" 
+        ) INNER JOIN "RSZELTTXT" "ZCT" ON ( 
+          "ZCT"."ELTUID" = "ZC"."COMPUID" AND 
+          "ZCT"."OBJVERS" = "ZC"."OBJVERS" AND 
+          "ZCT"."LANGU" = N'E' 
+        ) 
+      ) LEFT OUTER JOIN "RSPLF_SRV" "PF" ON ( 
+        "M"."SRVNM" = "PF"."SRVNM" AND 
+        "M"."OBJVERS" = "PF"."OBJVERS" 
+      ) 
+    ) INNER JOIN "RSPLF_SRVT" "PFT" ON ( 
+      "PF"."SRVNM" = "PFT"."SRVNM" AND 
+      "PF"."OBJVERS" = "PFT"."OBJVERS" AND 
+      "PFT"."LANGU" = N'E' 
+    ) 
+  WHERE "S"."OBJVERS" = N'A'
