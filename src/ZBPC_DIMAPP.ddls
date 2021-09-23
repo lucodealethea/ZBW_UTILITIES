@@ -74,3 +74,94 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     @DefaultAggregation: #SUM                                                                        
     cast(cast(1 as abap.int4) as rvcounter) as counter                                               
 }                                                                                                    
+--------------SQL generated-------------------------
+SELECT 
+  "D"."APPSET_ID", 
+  "DA"."APPLICATION_ID", 
+  RTRIM( 
+    SUBSTRING( 
+      "D"."TECH_NAME", 
+      7, 
+      12 
+    ) 
+  ) AS "TECHNICAL_NAME", 
+  "D"."TECH_NAME", 
+  "MD"."APPLICATION_TYPE", 
+  CASE WHEN "MD"."APPLICATION_TYPE" = N'1' THEN N'Generic' WHEN "MD"."APPLICATION_TYPE" = N'2' THEN N'Exchange Rates' WHEN "MD"."APPLICATION_TYPE" = N'3' THEN N'Ownership' WHEN "MD"."APPLICATION_TYPE" = N'4' THEN N'Standard' WHEN "MD"."APPLICATION_TYPE" = N'5' THEN N'Finance' WHEN "MD"."APPLICATION_TYPE" = N'6' THEN N'Consolidation' ELSE N'Unknown' 
+  END AS "APP_TYPE_DESC", 
+  "MD"."STORAGE_TYPE", 
+  "D"."DIMENSION", 
+  "TX"."DESCRIPTION", 
+  "D"."REF_DIM", 
+  "D"."DATA_TABLE" AS "MASTERDATA_TABLE", 
+  "D"."DESC_TABLE" AS "TEXT_TABL", 
+  "D"."HIER_DATA_TABLE" AS "HIER_TABLE", 
+  RTRIM( 
+    SUBSTRING( 
+      "D"."TECH_NAME", 
+      1, 
+      6 
+    ) 
+  ) AS "NAME_SPACE", 
+  "DA"."SECURE", 
+  "VD"."DDTEXT" AS "DIM_TYPE", 
+  "DA"."RW", 
+  "DA"."DEF_REPORT_MBR", 
+  "DA"."DEF_INPUT_MBR", 
+  "DA"."DISPLAY_DIM", 
+  "DA"."DISPLAY_DIM_NAME", 
+  "DA"."MEMBER_DISPLAY", 
+  "D"."DIM_TYPE_INDEX", 
+  "D"."NUM_HIER", 
+  "D"."SERVER_VERSION", 
+  "D"."FILE_VERSION", 
+  "D"."FILE_LOCK", 
+  "D"."PROCESS_STATE", 
+  "D"."LOCKED_BY", 
+  "D"."CAPTION", 
+  "D"."HIER_TIME_DEP", 
+  "D"."PROCESS_DATE", 
+  "D"."PROCESS_TIME", 
+  "D"."STRUC_MODIF_DATE", 
+  "D"."STRUC_MODIF_TIME", 
+  "D"."MBR_MODIF_DATE", 
+  "D"."MBR_MODIF_TIME", 
+  "D"."TDA_TABLE", 
+  "MD"."INTERCOMPANY", 
+  "MD"."FX_TRANS", 
+  "MD"."RATE_APPLICATION", 
+  "MD"."OWNERSHIP_APPL", 
+  "MD"."JOURNAL", 
+  "MD"."AUDIT_ON", 
+  "MD"."BEXVCUBE", 
+  "MD"."INFOCUBE", 
+  ( 
+    CAST( 
+      1 AS INTEGER 
+    ) 
+  ) AS "COUNTER" 
+FROM ( 
+  ( 
+    ( 
+      "UJA_DIMENSION" "D" INNER JOIN "UJA_DIM_APPL" "DA" ON ( 
+        "D"."MANDT" = "DA"."MANDT" AND 
+        "D"."APPSET_ID" = "DA"."APPSET_ID" AND 
+        "D"."DIMENSION" = "DA"."DIMENSION" 
+      ) 
+    ) INNER JOIN "UJA_DIMENSIONT" "TX" ON ( 
+      "D"."MANDT" = "TX"."MANDT" AND 
+      "D"."APPSET_ID" = "TX"."APPSET_ID" AND 
+      "D"."DIMENSION" = "TX"."DIMENSION" AND 
+      "TX"."LANGU" = N'E' 
+    ) 
+  ) LEFT OUTER JOIN "DD07V" "VD" ON ( 
+    "D"."DIM_TYPE" = "VD"."DOMVALUE_L" AND 
+    "VD"."DOMNAME" = N'UJ_DIM_TYPE' AND 
+    "VD"."DDLANGUAGE" = N'E' 
+  ) 
+) INNER JOIN "UJA_APPL" "MD" ON ( 
+  "MD"."MANDT" = "DA"."MANDT" AND 
+  "MD"."APPSET_ID" = "DA"."APPSET_ID" AND 
+  "DA"."APPLICATION_ID" = "MD"."APPLICATION_ID" 
+) 
+WHERE "D"."APPSET_ID" = N'XXXXXX'
