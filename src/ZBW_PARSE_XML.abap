@@ -1,7 +1,7 @@
 *&---------------------------------------------------------------------*
 *& Report zbw_parse_xml
 *&---------------------------------------------------------------------*
-*&
+*& structure the XML for HCPR, ADSO or HAAP
 *&---------------------------------------------------------------------*
 REPORT zbw_parse_xml.
 
@@ -10,13 +10,14 @@ REPORT zbw_parse_xml.
 ***********************************************************************
 TYPES: BEGIN OF ty_iobj,
           iobjnm       TYPE rsdiobjnm,
-          TXTLG        TYPE rstxtlg,
+          txtlg        TYPE rstxtlg,
         END OF ty_iobj.
 
 TYPES: BEGIN OF ty_output,
           infoprovider TYPE rsdodsobject,
           source       TYPE rsdiobjnm,
           target       TYPE rsohcprcolnm,
+          desc   TYPE rstxtlg,
         END OF ty_output.
 
 TYPES: BEGIN OF ty_output2,
@@ -40,7 +41,7 @@ DATA: l_hobj_xml_def TYPE xstring,
 
        lt_iobj        TYPE STANDARD TABLE OF ty_iobj,
        lt_iobjnm        TYPE STANDARD TABLE OF ty_iobj,
-       ls_iobj        type ty_iobj,
+       ls_iobj        TYPE ty_iobj,
        l_cvalue       TYPE char255,
        l_offset       TYPE i,
        l_output       TYPE ty_output,
@@ -61,11 +62,14 @@ DATA: l_hobj_xml_def TYPE xstring,
 DATA: go_alv     TYPE REF TO cl_salv_table,
        go_columns TYPE REF TO cl_salv_columns,
        go_funcs   TYPE REF TO cl_salv_functions,
+       go_display   TYPE REF TO cl_salv_display_settings,
        go_ex      TYPE REF TO cx_root,
-       s_xml_info TYPE smum_xmltb.
+       s_xml_info TYPE smum_xmltb,
+       title TYPE char255.
 
 FIELD-SYMBOLS: <fs_xml_info>     TYPE smum_xmltb,
                 <fs_any_tab>     TYPE any,
+                <fs_output>      TYPE ty_output,
                 <fs_output3>     TYPE ty_output3.
 ************************************************************************
 
@@ -144,10 +148,13 @@ BREAK bb5827.
      ELSEIF
       <fs_xml_info>-cname = 'targetName'.
        l_output-target = <fs_xml_info>-cvalue.
+       ls_iobj-iobjnm = <fs_xml_info>-cvalue.
+       COLLECT ls_iobj INTO lt_iobj.
      ELSEIF
        <fs_xml_info>-cname = 'sourceName'.
        l_output-source = <fs_xml_info>-cvalue.
        APPEND l_output TO lt_output.
+
      ENDIF.
    ENDLOOP.
 
@@ -228,18 +235,25 @@ l_output3-object = '0BW_PROJECTION'.
 ENDIF.
 
 * get InfoObject Description
-SELECT * FROM RSDIOBJT
+SELECT * FROM rsdiobjt
 INTO CORRESPONDING FIELDS OF TABLE @lt_iobjnm
 FOR ALL ENTRIES IN @lt_iobj
-WHERE IOBJNM = @lt_iobj-iobjnm and LANGU = 'E'.
+WHERE iobjnm = @lt_iobj-iobjnm AND langu = 'E'.
 
-LOOP AT lt_output3 ASSIGNING <fs_output3>.
-READ TABLE lt_iobjnm INTO ls_iobj WITH KEY iobjnm = <fs_output3>-target.
-IF SY-subrc = 0.
-<fs_output3>-desc = ls_iobj-txtlg.
+LOOP AT lt_output ASSIGNING <fs_output>.
+READ TABLE lt_iobjnm INTO ls_iobj WITH KEY iobjnm = <fs_output>-target.
+IF sy-subrc = 0.
+<fs_output>-desc = ls_iobj-txtlg.
 ENDIF.
 ENDLOOP.
 
+LOOP AT lt_output3 ASSIGNING <fs_output3>.
+READ TABLE lt_iobjnm INTO ls_iobj WITH KEY iobjnm = <fs_output3>-target.
+IF sy-subrc = 0.
+<fs_output3>-desc = ls_iobj-txtlg.
+ENDIF.
+ENDLOOP.
+write p_hobj to title.
 * Output to ALV
 TRY.
      cl_salv_table=>factory(
@@ -253,6 +267,8 @@ TRY.
      " set functions
      go_funcs = go_alv->get_functions( ).
      go_funcs->set_all( ).
+     go_display = go_alv->get_display_settings( ).
+     go_display->set_list_header( 'Put a dynamic title here' ).
      go_alv->display( ).
    CATCH cx_salv_msg INTO go_ex.
      MESSAGE go_ex TYPE 'E'.
