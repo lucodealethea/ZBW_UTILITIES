@@ -8,6 +8,26 @@ REPORT zbw_parse_xml.
 * DATA DECLARATION
 
 ***********************************************************************
+TYPES: BEGIN OF ty_dim,
+          appset_id	TYPE uj_appset_id,
+          dimension	TYPE uj_dim_name,
+          dim_type  TYPE uj_dim_type,
+          dim_type_index  TYPE uja_dim_type_index,
+          ref_dim	TYPE uj_dim_name,
+          num_hier  TYPE uj_smallint,
+          tech_name	TYPE uj_tech_name,
+          caption	TYPE uj_caption,
+          hier_time_dep	TYPE uj_flg,
+          data_table  TYPE tabname,
+          desc_table  TYPE tabname,
+          hier_data_table	TYPE tabname,
+        END OF ty_dim.
+
+TYPES: BEGIN OF ty_iobj_dim,
+    iobjnm       TYPE rsdiobjnm,
+    tech_name	   TYPE uj_tech_name,
+  END OF ty_iobj_dim.
+
 TYPES: BEGIN OF ty_iobj,
           iobjnm       TYPE rsdiobjnm,
           txtlg        TYPE rstxtlg,
@@ -38,9 +58,13 @@ DATA: l_hobj_xml_def TYPE xstring,
        lt_output      TYPE STANDARD TABLE OF ty_output,
        lt_output2     TYPE STANDARD TABLE OF ty_output2,
        lt_output3     TYPE STANDARD TABLE OF ty_output3,
-
+       lt_dim         TYPE STANDARD TABLE OF ty_dim,
+       ls_dim TYPE ty_dim,
+       lt_iobj_dim    TYPE STANDARD TABLE OF ty_iobj_dim,
+       ls_iobj_dim    TYPE ty_iobj_dim,
        lt_iobj        TYPE STANDARD TABLE OF ty_iobj,
        lt_iobjnm        TYPE STANDARD TABLE OF ty_iobj,
+       lt_dimension   TYPE STANDARD TABLE OF ty_dim,
        ls_iobj        TYPE ty_iobj,
        l_cvalue       TYPE char255,
        l_offset       TYPE i,
@@ -119,7 +143,7 @@ IF sy-subrc <> 0.
 ENDIF.
 
 IF lv_flg_hcpr EQ 'X'.
-BREAK bb5827.
+*BREAK bb5827.
    ASSIGN lt_output TO <fs_any_tab> .
 * Parse XML string to XML table
 
@@ -239,21 +263,44 @@ SELECT * FROM rsdiobjt
 INTO CORRESPONDING FIELDS OF TABLE @lt_iobjnm
 FOR ALL ENTRIES IN @lt_iobj
 WHERE iobjnm = @lt_iobj-iobjnm AND langu = 'E'.
+* get Dimension description
+LOOP AT lt_iobj INTO ls_iobj.
+  ls_iobj_dim-iobjnm = ls_iobj-iobjnm.
+  CONCATENATE '/CPMB/' ls_iobj-iobjnm INTO ls_iobj_dim-tech_name.
+  COLLECT ls_iobj_dim INTO lt_iobj_dim.
+ENDLOOP.
+
+SELECT * FROM uja_dimension
+INTO CORRESPONDING FIELDS OF TABLE @lt_dim
+FOR ALL ENTRIES IN @lt_iobj_dim
+WHERE tech_name = @lt_iobj_dim-tech_name.
 
 LOOP AT lt_output ASSIGNING <fs_output>.
-READ TABLE lt_iobjnm INTO ls_iobj WITH KEY iobjnm = <fs_output>-target.
-IF sy-subrc = 0.
-<fs_output>-desc = ls_iobj-txtlg.
-ENDIF.
+  IF <fs_output>-SOURCE(6) <> '/CPMB/'.
+   READ TABLE lt_iobjnm INTO ls_iobj WITH KEY iobjnm = <fs_output>-target.
+    IF sy-subrc = 0.
+    <fs_output>-desc = ls_iobj-txtlg.
+    ENDIF.
+  ELSE. "/CPMB/ dimension
+
+  READ TABLE lt_dim INTO ls_dim WITH KEY tech_name = <fs_output>-source.
+  IF sy-subrc = 0.
+  <fs_output>-desc = ls_dim-dimension.
+  ENDIF.
+  ENDIF.
+
 ENDLOOP.
 
 LOOP AT lt_output3 ASSIGNING <fs_output3>.
 READ TABLE lt_iobjnm INTO ls_iobj WITH KEY iobjnm = <fs_output3>-target.
 IF sy-subrc = 0.
 <fs_output3>-desc = ls_iobj-txtlg.
+  ELSE.
+
 ENDIF.
 ENDLOOP.
-write p_hobj to title.
+
+WRITE p_hobj TO title.
 * Output to ALV
 TRY.
      cl_salv_table=>factory(
