@@ -1,7 +1,7 @@
 *&---------------------------------------------------------------------*
 *& Report ZZ_ALL11_UP_DOWN
 *&---------------------------------------------------------------------*
-*& Can be used with the help of RSBDCOS0 - touch to create empty files
+*&
 *&---------------------------------------------------------------------*
 REPORT zz_al11_down_up.
 
@@ -61,7 +61,7 @@ ENDLOOP.
 ELSEIF gv_rb2 = 'X'. "Upload To Application Server is selected
 
 LOOP AT so_asfil INTO ls_asfil.
-
+*BREAK BB5827.
 PERFORM upload USING ls_asfil-low p_out ls_subrc.
 PERFORM show_upd_msg USING ls_subrc.
 ENDLOOP.
@@ -111,7 +111,7 @@ nfilenm = lv_string.
 filepath = pv_dimfile(lv_last_occ).
 
 if lv_len LE 40.
-
+*  BREAK BB5827.
 * check file existence > issue with SMART filenames > 40 char
   CALL FUNCTION 'EPS_GET_FILE_ATTRIBUTES'
    EXPORTING
@@ -131,6 +131,8 @@ if lv_len LE 40.
 * Implement suitable error handling here
    lv_subrc = sy-subrc.
   ELSE.
+
+*    BREAK BB5827.
 
   CALL FUNCTION 'EPS_DELETE_FILE'
    EXPORTING
@@ -210,7 +212,7 @@ ELSE.
 EXIT.
 ENDIF.
 ENDDO.
-
+*BREAK BB5827.
 if lv_last_occ <> 0.
 * target path should retrieved from F4
 filepath = pv_dimfile(lv_last_occ).
@@ -221,6 +223,7 @@ endif.
 * file name is
 filenm = lv_string.
 
+*BREAK BB5827.
 CONCATENATE out_path filenm INTO ls_out_path SEPARATED BY '\'.
 MOVE: pv_dimfile TO lv_out_path,
       ls_out_path TO lv_dimfile.
@@ -347,7 +350,7 @@ FORM z30_get_filename CHANGING p_file.
 *  ENDCASE.
 
   lv_lfile = p_file.
-  CALL METHOD cl_rsan_ut_files=>f4
+  CALL METHOD zcl_rsan_ut_files=>f4
     EXPORTING
       i_applserv         = 'X' "lv_applserv'
       i_title            = lv_title
@@ -367,3 +370,26 @@ FORM z30_get_filename CHANGING p_file.
 
   p_file = lv_lfile.
 ENDFORM.                    " Z30_GET_FILENAME
+* texts symbols
+*	I	002	Errors Occured Uploading the Files	 68
+*	I	003	Files Uploaded Successfully	 54
+*	I	004	Files Downloaded Successfully	 58
+*	I	005	File Deleted Successfully	 50
+*	I	006	Errors Occured Deleting the Files	 66
+*	I	008	Save file at client side	 48
+*	I	021	Server file path	 26
+*	I	030	Client file path	 26
+*	I	032	Insert date into file name	 52
+*	I	033	Insert time into file name	 52
+*	I	034	Date format: YYMMDD	 29
+*	I	035	Date format: YYYYMMDD	 42
+*	I	036	Time format: HHMM	 27
+*	I	037	Time format: HHMMSS	 29
+*	I	101	Output	 16
+*	R		ZZ_AL11_DOWN_UP	 15
+*	S	GV_RB1	        Download To Desktop	 27
+*	S	GV_RB2	        Upload To Application Server	 36
+*	S	GV_RB3	        Delete Files From App Server	 36
+*	S	P_ADDEXT	        Add .txt Extension	 26
+*	S	P_OUT	        Local Desktop Directory	 31
+*	S	SO_ASFIL	        File Name	 34
