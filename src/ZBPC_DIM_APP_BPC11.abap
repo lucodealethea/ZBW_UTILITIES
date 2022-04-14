@@ -1,5 +1,6 @@
 * ABAP CDS ZBPC_DIMAPP2 describes BPC Models
 * Table Function on ZBPC_DIMAPP2 returns list of fields to build a CDS view or a TF 
+* SE38 ZBPC_DIM_APP returns the list of fields(to build CDS View or AMDP/TF) with option to delete column (sensitive data)
 * Next step will be to generate automatically if any change occured on BPC model, the Class and TF with Code Composer
 @AbapCatalog.sqlViewName: 'ZVBPC_DIMAPP2'
 @EndUserText.label: 'MetaData For BPC Dimensions (short)'
@@ -196,13 +197,31 @@ endclass.
 report zbpc_dim_app.
 
 parameters:
-p_env type uj_appset_id default 'xxx' ,
-p_app type uj_appl_id default 'PLANNING'.
+p_env type uj_appset_id default 'TRACTEBEL_GLO' ,
+p_app type uj_appl_id default 'SGA'.
+
+type-pools: abap.
 
 data:       m3      type string,
-            l_title type sy-title.
+            l_title type sy-title,
+            ls_metadata type ref to data,
+*Table to hold the components
+            tab_return type abap_compdescr_tab,
+*Work area for the component table
+            components like line of tab_return,
+            w_typ TYPE REF TO cl_abap_elemdescr,
+            lt_tot_comp    TYPE cl_abap_structdescr=>component_table,
+            lt_comp        TYPE cl_abap_structdescr=>component_table,
+            la_comp        LIKE LINE OF lt_comp,
+            lo_new_type    TYPE REF TO cl_abap_structdescr,
+            lo_table_type  TYPE REF TO cl_abap_tabledescr,
+            w_tref         TYPE REF TO data,
+            w_dy_line      TYPE REF TO data.
 
-field-symbols <itab> type standard table.
+
+field-symbols: <dyn_tab>  type standard table,
+               <dyn_wa>,
+               <dyn_field>.
 
 start-of-selection.
 
@@ -222,11 +241,30 @@ select
    zbpc_tf_metagen~fields_tf
  from
   zbpc_tf_metagen( p_appset = @p_env, p_app = @p_app )
+*  zbpc_tf_metagen( p_appset = 'TRACTEBEL_GLO', p_app = 'SGA' )
   into table @data(lt_metadata)
   ##db_feature_mode[amdp_table_function].
 
+CREATE DATA ls_metadata LIKE LINE OF lt_metadata.
+
+concatenate 'Metadata--' p_app '--' into l_title.
+
+
+*Call Perform to get the Int. Table Components
+perform get_int_table_fields using    lt_metadata
+                            changing  tab_return.
+break-point.
+* LENGTH, DECIMALS, TYPE_KIND, NAME
+
+* for example only, in case we want to remove some fields,
+* DELETE tab_return WHERE name = 'MDATA_BW_TABLE'.
+* perform build_another_it using tab_return.
+
+* and pass lt_metadata content into the newly created table
+
 perform callback_alv
 using l_title abap_true lt_metadata.
+*using l_title abap_true <dyn_tab>.
 
 form callback_alv using
   value(i_title) type sy-title
@@ -251,3 +289,85 @@ form callback_alv using
   endif.
 
 endform.                    "callback_alv
+
+form get_int_table_fields  using    t_data type any table
+                           changing t_return type abap_compdescr_tab.
+
+  data:
+  oref_table type ref to cl_abap_tabledescr,
+  oref_struc type ref to cl_abap_structdescr,
+  oref_error type ref to cx_root,
+  text type string.
+*Get the description of data object type
+  try.
+      oref_table ?=
+      cl_abap_tabledescr=>describe_by_data( t_data ).
+    catch cx_root into oref_error.
+      text = oref_error->get_text( ).
+      write: / text.
+      exit.
+  endtry.
+*Get the line type
+  try.
+      oref_struc ?= oref_table->get_table_line_type( ).
+    catch cx_root into oref_error.
+      text = oref_error->get_text( ).
+*      write: / text.
+      exit.
+  endtry.
+**  begin of abap_compdescr,
+*    length    type i,
+*    decimals  type i,
+*    type_kind type abap_typekind,
+*    name      type abap_compname,
+*  end of abap_compdescr,
+  append lines of oref_struc->components to t_return.
+  CLEAR: components.
+
+endform.                    " GET_INT_TABLE_FIELDS
+
+FORM build_another_it using w_data type any table.
+
+ LOOP AT w_data INTO components.
+  CASE components-type_kind.
+      WHEN 'STRING'.  w_typ = cl_abap_elemdescr=>get_string( ).
+      WHEN 'XSTRING'. w_typ = cl_abap_elemdescr=>get_xstring( ).
+      WHEN 'I'.       w_typ = cl_abap_elemdescr=>get_i( ).
+      WHEN 'F'.       w_typ = cl_abap_elemdescr=>get_f( ).
+      WHEN 'D'.       w_typ = cl_abap_elemdescr=>get_d( ).
+      WHEN 'T'.       w_typ = cl_abap_elemdescr=>get_t(  ).
+      WHEN 'C'.       w_typ = cl_abap_elemdescr=>get_c( p_length = components-length ).
+      WHEN 'N'.       w_typ = cl_abap_elemdescr=>get_n( p_length = components-length ).
+      WHEN 'X'.       w_typ = cl_abap_elemdescr=>get_x( p_length = components-length ).
+      WHEN 'P'.       w_typ = cl_abap_elemdescr=>get_p( p_length = components-length p_decimals = components-decimals ).
+  ENDCASE.
+
+ CLEAR la_comp.
+    la_comp-type = w_typ.               "Field type
+    la_comp-name = components-name.       "Field name   ex: FIELD1
+    APPEND la_comp TO lt_tot_comp.      "Add entry to component table
+
+  ENDLOOP.
+
+* Create new type from component table
+  lo_new_type = cl_abap_structdescr=>create( lt_tot_comp ).
+
+* Create new table type
+  lo_table_type = cl_abap_tabledescr=>create( lo_new_type ).
+
+* Create dynamic internal table and assign to Field Symbol
+  CREATE DATA w_tref TYPE HANDLE lo_table_type.
+  ASSIGN w_tref->* TO <dyn_tab>.
+
+* Create dynamic work area and assign to Field Symbol
+  CREATE DATA w_dy_line LIKE LINE OF <dyn_tab>.
+  ASSIGN w_dy_line->* TO <dyn_wa>.
+
+     cl_abap_corresponding=>create(
+      source            = lt_metadata
+      destination       = <dyn_tab>
+      mapping           = VALUE cl_abap_corresponding=>mapping_table(  )
+      )->execute( EXPORTING source      = lt_metadata
+                  CHANGING  destination = <dyn_tab> ).
+
+endform.                    "build_another_it
