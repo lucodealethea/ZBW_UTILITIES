@@ -1,7 +1,7 @@
 * ABAP CDS ZBPC_DIMAPP2 describes BPC Models
 * Table Function on ZBPC_DIMAPP2 returns list of fields to build a CDS view or a TF 
 * SE38 ZBPC_DIM_APP returns the list of fields(to build CDS View or AMDP/TF) with option to delete column (sensitive data)
-* Next step will be to generate automatically if any change occured on BPC model, the Class and TF with Code Composer
+* Next step will be to generate automatically if any change occured on BPC model, the AMDP Class along with TF with Code Composer
 @AbapCatalog.sqlViewName: 'ZVBPC_DIMAPP2'
 @EndUserText.label: 'MetaData For BPC Dimensions (short)'
 @AbapCatalog.compiler.compareFilter: true
@@ -79,24 +79,24 @@ class zcl_bpc_metadata definition
 public section.
  INTERFACES if_amdp_marker_hdb .
 
-* TYPES:
-*  BEGIN OF g_t_app_meta,
-*  APPLICATION_ID              TYPE UJ_APPL_ID,
-*  ADSO                        TYPE RSOADSONM,
-*  ADSO_VIEW                   TYPE TABLE_NAME,
-*  POSITION                    TYPE TABFDPOS,
-*  DIMENSION                   TYPE UJ_DIM_NAME,
-*  FIELDNAME                   TYPE FIELDNAME,
-*  MDATA_BW_TABLE              TYPE TABLE_NAME,
-*  ROLLNAME                    TYPE ROLLNAME,
-*  FIELDS_GROUBY               TYPE RRTMDXSTATEMENT,
-*  FIELDS_SELECT               TYPE RRTMDXSTATEMENT,
-*  FIELDS_GROUBY_CDS           TYPE RRTMDXSTATEMENT,
-*  FIELDS_SELECT_CDS           TYPE RRTMDXSTATEMENT,
-*  FIELDS_TF                   TYPE RRTMDXSTATEMENT,
-*  END OF g_t_app_meta.
-*  TYPES:
-*  gtt_app_meta TYPE STANDARD TABLE OF g_t_app_meta.
+ TYPES:
+  BEGIN OF g_t_app_meta,
+  APPLICATION_ID              TYPE UJ_APPL_ID,
+  ADSO                        TYPE RSOADSONM,
+  ADSO_VIEW                   TYPE TABLE_NAME,
+  POSITION                    TYPE TABFDPOS,
+  DIMENSION                   TYPE UJ_DIM_NAME,
+  FIELDNAME                   TYPE FIELDNAME,
+  MDATA_BW_TABLE              TYPE TABLE_NAME,
+  ROLLNAME                    TYPE ROLLNAME,
+  FIELDS_GROUBY               TYPE RRTMDXSTATEMENT,
+  FIELDS_SELECT               TYPE RRTMDXSTATEMENT,
+  FIELDS_GROUBY_CDS           TYPE RRTMDXSTATEMENT,
+  FIELDS_SELECT_CDS           TYPE RRTMDXSTATEMENT,
+  FIELDS_TF                   TYPE RRTMDXSTATEMENT,
+  END OF g_t_app_meta.
+  TYPES:
+  gtt_app_meta TYPE STANDARD TABLE OF g_t_app_meta.
 
   CLASS-METHODS:
 
@@ -179,6 +179,45 @@ SELECT
 
 FROM SYS.DUMMY
 
+UNION
+
+SELECT
+:p_app AS APPLICATION_ID,
+( SELECT DISTINCT ADSO FROM :lt_metadata ) AS ADSO,
+( SELECT DISTINCT ADSO_VIEW FROM :lt_metadata ) AS ADSO_VIEW,
+'0001'  AS POSITION,
+'' AS DIMENSION,
+'REQTSN' AS FIELDNAME,
+'' AS MDATA_BW_TABLE,
+'RSPM_REQUEST_TSN' AS ROLLNAME,
+'' AS FIELDS_GROUPBY,
+'' AS FIELDS_SELECT,
+'' AS FIELDS_GROUPBY_CDS,
+'' AS FIELDS_SELECT_CDS,
+'' AS FIELDS_TF
+
+FROM SYS.DUMMY
+
+UNION
+
+SELECT
+:p_app AS APPLICATION_ID,
+( SELECT DISTINCT ADSO FROM :lt_metadata ) AS ADSO,
+( SELECT DISTINCT ADSO_VIEW FROM :lt_metadata ) AS ADSO_VIEW,
+'0002'  AS POSITION,
+'' AS DIMENSION,
+'RECORDMODE' AS FIELDNAME,
+'' AS MDATA_BW_TABLE,
+'' AS ROLLNAME,
+'' AS FIELDS_GROUPBY,
+'' AS FIELDS_SELECT,
+'' AS FIELDS_GROUPBY_CDS,
+'' AS FIELDS_SELECT_CDS,
+'' AS FIELDS_TF
+
+FROM SYS.DUMMY
+
+
 ORDER BY 4 ASC
 ;
 
@@ -188,6 +227,7 @@ SELECT * from :lt_meta_fields
 
 endmethod.
 endclass.
+
 
 *&---------------------------------------------------------------------*
 *& Report ZBPC_DIM_APP
