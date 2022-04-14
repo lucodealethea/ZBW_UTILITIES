@@ -197,7 +197,7 @@ endclass.
 report zbpc_dim_app.
 
 parameters:
-p_env type uj_appset_id default 'TRACTEBEL_GLO' ,
+p_env type uj_appset_id default 'xx' ,
 p_app type uj_appl_id default 'SGA'.
 
 type-pools: abap.
@@ -241,7 +241,6 @@ select
    zbpc_tf_metagen~fields_tf
  from
   zbpc_tf_metagen( p_appset = @p_env, p_app = @p_app )
-*  zbpc_tf_metagen( p_appset = 'TRACTEBEL_GLO', p_app = 'SGA' )
   into table @data(lt_metadata)
   ##db_feature_mode[amdp_table_function].
 
