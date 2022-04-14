@@ -1,16 +1,15 @@
-@AbapCatalog.sqlViewName: 'ZBPCDIMAPP'                                                               
-@Analytics: { dataCategory: #DIMENSION,                                                              
-              dataExtraction.enabled: true }                                                         
-@ObjectModel.representativeKey: 'bpcDimension'                                                       
+@AbapCatalog.sqlViewName: 'ZVBPC_DIM_APP'                                                               
 @ClientDependent: false                                                                              
 @AccessControl.authorizationCheck: #NOT_REQUIRED                                                            
 @AbapCatalog.compiler.compareFilter: true                                                            
-@EndUserText.label: 'Dimensions Used In DUMMYs Models'                                               
-define view ZBPC_DIMAPP as select from uja_dimension as D                                            
+@EndUserText.label: 'Dimensions Used in BPC Models'                                              
+define view ZBPC_DIM_APP as select from uja_dimension as D                                            
 inner join uja_dim_appl as DA                                                                        
     on D.mandt = DA.mandt                                                                            
     and D.appset_id = DA.appset_id                                                                   
-    and D.dimension = DA.dimension                                                                   
+    and D.dimension = DA.dimension
+inner join uja_appl as AP on AP.mandt = DA.mandt and AP.appset_id = DA.appset_id and AP.application_id = DA.application_id     
+inner join uja_appset_info as DS on DS.mandt = DA.mandt and DS.appset_id = DA.appset_id 
 inner join uja_dimensiont as TX on D.mandt = TX.mandt                                                
 and D.appset_id = TX.appset_id                                                                       
 and D.dimension = TX.dimension                                                                       
@@ -18,10 +17,20 @@ and TX.langu = 'E'
 left outer join dd07v as VD on D.dim_type = VD.domvalue_l and VD.domname='UJ_DIM_TYPE' and VD.ddlanguage = 'E'
 inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id and DA.application_id = MD.application_id                                                                                           
      {                                                                                               
-    key substring(D.tech_name,7,12) as technical_name,     
-    D.tech_name,                            
-    D.appset_id,                                                                                     
-    DA.application_id,
+    key D.appset_id,                                                                                     
+    key DA.application_id,
+    key D.dimension,
+      
+    substring(D.tech_name,7,12) as RootName,    
+    D.tech_name,
+    concat('/B28/S_',substring(D.tech_name,7,12)) as FieldName,
+    concat(substring(D.tech_name,1,6),substring(D.tech_name,7,12)) as FieldName2, 
+    concat(DS.appset_prefix,AP.appl_prefix) as Prefix,      
+    substring(D.tech_name,1,6) as name_space,   
+    concat(replace(MD.infocube,'/CPMB/','/B28/A'),'7') as ADSO_VIEW,      
+    MD.bexvcube,
+    MD.infocube,     
+    MD.application_type,
     case 
     when MD.application_type = '1' then 'Generic'
     when MD.application_type = '2' then 'Exchange Rates'
@@ -30,15 +39,20 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     when MD.application_type = '5' then 'Finance'
     when MD.application_type = '6' then 'Consolidation'
     else 'Unknown'
-    end as app_type,              
+    end as app_type_desc,              
     MD.storage_type,                                                                         
-    D.dimension,                                                                                     
+                                                                             
     TX.description,                                                                                  
-    D.ref_dim,                                                                                       
-    D.data_table as masterdata_table,                                                                
+    D.ref_dim, 
+    D.data_table,                                                                                      
+    concat('/B28/P',substring(D.tech_name,7,12))as mdata_bw_table,
+//descendants table where NIV = 0 equals  data_table where /CPMB/CALC = N
+// but have to exclude hier nodes without children with IS_BAS_EQ_NODE = Y 
+// this property is custom and exists only in OBS  
+    replace(D.tech_name,'/CPMB/','/1CPMB/P') as desc_table,
     D.desc_table as text_tabl,                                                                       
     D.hier_data_table as hier_table,                                                                 
-            substring(D.tech_name,1,6) as name_space,                                                
+                                           
     DA.secure                                                                                        
     ,VD.ddtext as Dim_Type,                                                                          
     DA.rw,                                                                                           
@@ -69,33 +83,64 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     MD.ownership_appl,
     MD.journal,
     MD.audit_on,
-    MD.bexvcube,
-    MD.infocube,                                                                                    
+                                                                                 
     @DefaultAggregation: #SUM                                                                        
     cast(cast(1 as abap.int4) as rvcounter) as counter                                               
 }                                                                                                    
+*where D.appset_id = 'xx' or D.appset_id = 'yy'                                                               
 --------------SQL generated-------------------------
-SELECT 
+AS SELECT 
   "D"."APPSET_ID", 
   "DA"."APPLICATION_ID", 
+  "D"."DIMENSION", 
   RTRIM( 
     SUBSTRING( 
       "D"."TECH_NAME", 
       7, 
       12 
     ) 
-  ) AS "TECHNICAL_NAME", 
+  ) AS "ROOTNAME", 
   "D"."TECH_NAME", 
-  "MD"."APPLICATION_TYPE", 
-  CASE WHEN "MD"."APPLICATION_TYPE" = N'1' THEN N'Generic' WHEN "MD"."APPLICATION_TYPE" = N'2' THEN N'Exchange Rates' WHEN "MD"."APPLICATION_TYPE" = N'3' THEN N'Ownership' WHEN "MD"."APPLICATION_TYPE" = N'4' THEN N'Standard' WHEN "MD"."APPLICATION_TYPE" = N'5' THEN N'Finance' WHEN "MD"."APPLICATION_TYPE" = N'6' THEN N'Consolidation' ELSE N'Unknown' 
-  END AS "APP_TYPE_DESC", 
-  "MD"."STORAGE_TYPE", 
-  "D"."DIMENSION", 
-  "TX"."DESCRIPTION", 
-  "D"."REF_DIM", 
-  "D"."DATA_TABLE" AS "MASTERDATA_TABLE", 
-  "D"."DESC_TABLE" AS "TEXT_TABL", 
-  "D"."HIER_DATA_TABLE" AS "HIER_TABLE", 
+  CONCAT( 
+    N'/B28/S_', 
+    RTRIM ( 
+      RTRIM( 
+        SUBSTRING( 
+          "D"."TECH_NAME", 
+          7, 
+          12 
+        ) 
+      ) 
+    ) 
+  ) AS "FIELDNAME", 
+  CONCAT( 
+    RTRIM ( 
+      RTRIM( 
+        SUBSTRING( 
+          "D"."TECH_NAME", 
+          1, 
+          6 
+        ) 
+      ) 
+    ), 
+    RTRIM ( 
+      RTRIM( 
+        SUBSTRING( 
+          "D"."TECH_NAME", 
+          7, 
+          12 
+        ) 
+      ) 
+    ) 
+  ) AS "FIELDNAME2", 
+  CONCAT( 
+    RTRIM ( 
+      "DS"."APPSET_PREFIX" 
+    ), 
+    RTRIM ( 
+      "AP"."APPL_PREFIX" 
+    ) 
+  ) AS "PREFIX", 
   RTRIM( 
     SUBSTRING( 
       "D"."TECH_NAME", 
@@ -103,6 +148,56 @@ SELECT
       6 
     ) 
   ) AS "NAME_SPACE", 
+  CONCAT( 
+    RTRIM ( 
+      REPLACE ( 
+        RTRIM( 
+          "MD"."INFOCUBE" 
+        ), 
+        RTRIM( 
+          N'/CPMB/' 
+        ), 
+        RTRIM( 
+          N'/B28/A' 
+        ) 
+      ) 
+    ), 
+    N'7' 
+  ) AS "ADSO_VIEW", 
+  "MD"."BEXVCUBE", 
+  "MD"."INFOCUBE", 
+  "MD"."APPLICATION_TYPE", 
+  CASE WHEN "MD"."APPLICATION_TYPE" = N'1' THEN N'Generic' WHEN "MD"."APPLICATION_TYPE" = N'2' THEN N 'Exchange Rates' WHEN "MD"."APPLICATION_TYPE" = N'3' THEN N'Ownership' WHEN "MD"."APPLICATION_TYPE" = N'4' THEN N'Standard' WHEN "MD"."APPLICATION_TYPE" = N'5' THEN N'Finance' WHEN "MD"."APPLICATION_TYPE" = N'6' THEN N'Consolidation' ELSE N'Unknown' 
+  END AS "APP_TYPE_DESC", 
+  "MD"."STORAGE_TYPE", 
+  "TX"."DESCRIPTION", 
+  "D"."REF_DIM", 
+  "D"."DATA_TABLE", 
+  CONCAT( 
+    N'/B28/P', 
+    RTRIM ( 
+      RTRIM( 
+        SUBSTRING( 
+          "D"."TECH_NAME", 
+          7, 
+          12 
+        ) 
+      ) 
+    ) 
+  ) AS "MDATA_BW_TABLE", 
+  REPLACE ( 
+    RTRIM( 
+      "D"."TECH_NAME" 
+    ), 
+    RTRIM( 
+      N'/CPMB/' 
+    ), 
+    RTRIM( 
+      N'/1CPMB/P' 
+    ) 
+  ) AS "DESC_TABLE", 
+  "D"."DESC_TABLE" AS "TEXT_TABL", 
+  "D"."HIER_DATA_TABLE" AS "HIER_TABLE", 
   "DA"."SECURE", 
   "VD"."DDTEXT" AS "DIM_TYPE", 
   "DA"."RW", 
@@ -133,8 +228,6 @@ SELECT
   "MD"."OWNERSHIP_APPL", 
   "MD"."JOURNAL", 
   "MD"."AUDIT_ON", 
-  "MD"."BEXVCUBE", 
-  "MD"."INFOCUBE", 
   ( 
     CAST( 
       1 AS INTEGER 
@@ -143,10 +236,21 @@ SELECT
 FROM ( 
   ( 
     ( 
-      "UJA_DIMENSION" "D" INNER JOIN "UJA_DIM_APPL" "DA" ON ( 
-        "D"."MANDT" = "DA"."MANDT" AND 
-        "D"."APPSET_ID" = "DA"."APPSET_ID" AND 
-        "D"."DIMENSION" = "DA"."DIMENSION" 
+      ( 
+        ( 
+          "UJA_DIMENSION" "D" INNER JOIN "UJA_DIM_APPL" "DA" ON ( 
+            "D"."MANDT" = "DA"."MANDT" AND 
+            "D"."APPSET_ID" = "DA"."APPSET_ID" AND 
+            "D"."DIMENSION" = "DA"."DIMENSION" 
+          ) 
+        ) INNER JOIN "UJA_APPL" "AP" ON ( 
+          "AP"."MANDT" = "DA"."MANDT" AND 
+          "AP"."APPSET_ID" = "DA"."APPSET_ID" AND 
+          "AP"."APPLICATION_ID" = "DA"."APPLICATION_ID" 
+        ) 
+      ) INNER JOIN "UJA_APPSET_INFO" "DS" ON ( 
+        "DS"."MANDT" = "DA"."MANDT" AND 
+        "DS"."APPSET_ID" = "DA"."APPSET_ID" 
       ) 
     ) INNER JOIN "UJA_DIMENSIONT" "TX" ON ( 
       "D"."MANDT" = "TX"."MANDT" AND 
@@ -164,4 +268,6 @@ FROM (
   "MD"."APPSET_ID" = "DA"."APPSET_ID" AND 
   "DA"."APPLICATION_ID" = "MD"."APPLICATION_ID" 
 ) 
-WHERE "D"."APPSET_ID" = N'XXXXXX'
+--WHERE ( 
+--"D"."APPSET_ID" = N'xx' OR "D"."APPSET_ID" = N'xx' 
+)
