@@ -44,7 +44,6 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     D.hier_data_table as hier_table
                               
 }                                                                                                    
-where D.appset_id = 'TRACTEBEL_GLO' or D.appset_id = 'TRACTEBEL_TEMIS'
 
 @EndUserText.label: 'Generate MetaData From BPC Models'
 @ClientDependent: false
