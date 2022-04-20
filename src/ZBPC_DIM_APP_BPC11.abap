@@ -29,7 +29,10 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     D.tech_name,
     concat('/B28/S_',substring(D.tech_name,7,12)) as FieldName,
     concat(substring(D.tech_name,1,6),substring(D.tech_name,7,12)) as FieldName2, 
-    concat(replace(MD.infocube,'/CPMB/','/B28/A'),'7') as ADSO_VIEW,      
+    concat(replace(MD.infocube,'/CPMB/','/B28/A'),'7') as ADSO_VIEW,
+    cast(concat('ZVBPC_',DA.application_id) as TABLE_NAME) as CUSTOM_VIEW,
+    cast(concat('ZBPC_',DA.application_id) as DDLNAME) as CUSTOM_CDS_VIEW,
+    cast(concat('ZBPC_TF_',DA.application_id) as DDLNAME) as CUSTOM_TF,          
     MD.infocube,     
     D.data_table,                                                                                      
     concat('/B28/P',substring(D.tech_name,7,12))as mdata_bw_table,
@@ -41,6 +44,7 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     D.hier_data_table as hier_table
                               
 }                                                                                                    
+where D.appset_id = 'TRACTEBEL_GLO' or D.appset_id = 'TRACTEBEL_TEMIS'
 
 @EndUserText.label: 'Generate MetaData From BPC Models'
 @ClientDependent: false
@@ -56,6 +60,9 @@ returns {
   APPLICATION_ID              : UJ_APPL_ID;
   ADSO                        : RSOADSONM;
   ADSO_VIEW                   : TABLE_NAME;
+  CUSTOM_VIEW                 : TABLE_NAME;
+  CUSTOM_CDS_VIEW             : DDLNAME;
+  CUSTOM_TF                   : DDLNAME;      
   POSITION                    : TABFDPOS;
   DIMENSION                   : UJ_DIM_NAME;
   FIELDNAME                   : FIELDNAME;
@@ -71,6 +78,7 @@ returns {
 }
 implemented by method ZCL_BPC_METADATA=>GET_METADATA_FOR_MODEL;
 
+--------------------BPC11-----------------------------
 class zcl_bpc_metadata definition
   public
   final
@@ -84,6 +92,9 @@ public section.
   APPLICATION_ID              TYPE UJ_APPL_ID,
   ADSO                        TYPE RSOADSONM,
   ADSO_VIEW                   TYPE TABLE_NAME,
+  CUSTOM_VIEW                 TYPE TABLE_NAME,
+  CUSTOM_CDS_VIEW             TYPE TABLE_NAME,
+  CUSTOM_TF                   TYPE TABLE_NAME,
   POSITION                    TYPE TABFDPOS,
   DIMENSION                   TYPE UJ_DIM_NAME,
   FIELDNAME                   TYPE FIELDNAME,
@@ -115,7 +126,7 @@ METHOD  GET_METADATA_FOR_MODEL
     BY DATABASE FUNCTION FOR HDB
           LANGUAGE SQLSCRIPT
           OPTIONS READ-ONLY
-          USING ZVBPC_DIMAPP2 DD03L
+          USING ZVBPC_DIMAPP2 DD03L T000 "DD03K
           .
 
  lt_metadata=
@@ -126,21 +137,28 @@ METHOD  GET_METADATA_FOR_MODEL
 ,FIELDNAME
 ,INFOCUBE AS ADSO
 ,ADSO_VIEW
+,CUSTOM_VIEW
+,CUSTOM_CDS_VIEW
+,CUSTOM_TF
 ,MDATA_BW_TABLE
 FROM ZVBPC_DIMAPP2
 WHERE APPSET_ID = :p_appset AND APPLICATION_ID = :p_app
 ;
+
 lt_max_pos=
 SELECT
 max(DD.POSITION) as MAX_POS
 FROM :lt_metadata as M
-INNER JOIN DD03L AS DD ON DD.TABNAME = M.ADSO_VIEW AND M.FIELDNAME = DD.FIELDNAME AND DD.AS4LOCAL = 'A'
-;
+INNER JOIN DD03L AS DD ON DD.TABNAME = M.ADSO_VIEW AND M.FIELDNAME = DD.FIELDNAME AND DD.AS4LOCAL = 'A';
+
 lt_meta_fields=
 SELECT
 META.APPLICATION_ID,
 META.ADSO,
 META.ADSO_VIEW,
+META.CUSTOM_VIEW,
+META.CUSTOM_CDS_VIEW,
+META.CUSTOM_TF,
 DD.POSITION,
 META.DIMENSION,
 META.FIELDNAME,
@@ -151,12 +169,9 @@ DD2.ROLLNAME,
 'F.'||META.FIELDNAME||',' AS FIELDS_GROUPBY_CDS,
 'key F.'||META.FIELDNAME||' AS '||META.DIMENSION||',' AS FIELDS_SELECT_CDS,
 META.DIMENSION||' : '||DD2.ROLLNAME||' ;' AS FIELDS_TF
-
 FROM :lt_metadata as META
 INNER JOIN DD03L AS DD ON DD.TABNAME = META.ADSO_VIEW AND META.FIELDNAME = DD.FIELDNAME AND DD.AS4LOCAL = 'A'
-
-LEFT OUTER JOIN DD03L AS DD2 ON DD2.TABNAME = META."MDATA_BW_TABLE" AND META.FIELDNAME = DD2.FIELDNAME AND DD.AS4LOCAL = 'A'
-
+LEFT OUTER JOIN DD03L AS DD2 ON DD2.TABNAME = META."MDATA_BW_TABLE" AND META.FIELDNAME = DD2.FIELDNAME AND DD2.AS4LOCAL = 'A'
 /*
 AND DD.TABCLASS = 'VIEW'
 */
@@ -166,6 +181,9 @@ SELECT
 :p_app AS APPLICATION_ID,
 ( SELECT DISTINCT ADSO FROM :lt_metadata ) AS ADSO,
 ( SELECT DISTINCT ADSO_VIEW FROM :lt_metadata ) AS ADSO_VIEW,
+( SELECT DISTINCT CUSTOM_VIEW FROM :lt_metadata ) AS CUSTOM_VIEW,
+( SELECT DISTINCT CUSTOM_CDS_VIEW FROM :lt_metadata ) AS CUSTOM_CDS_VIEW,
+( SELECT DISTINCT CUSTOM_TF FROM :lt_metadata ) AS CUSTOM_TF,
 (SELECT LPAD(TO_VARCHAR(TO_INTEGER(MAX_POS)+1),4,'0') AS MAX_POS FROM :lt_max_pos)  AS POSITION,
 'SIGNEDDATA' AS DIMENSION,
 '/B28/S_SDATA' AS FIELDNAME,
@@ -185,6 +203,9 @@ SELECT
 :p_app AS APPLICATION_ID,
 ( SELECT DISTINCT ADSO FROM :lt_metadata ) AS ADSO,
 ( SELECT DISTINCT ADSO_VIEW FROM :lt_metadata ) AS ADSO_VIEW,
+( SELECT DISTINCT CUSTOM_VIEW FROM :lt_metadata ) AS CUSTOM_VIEW,
+( SELECT DISTINCT CUSTOM_CDS_VIEW FROM :lt_metadata ) AS CUSTOM_CDS_VIEW,
+( SELECT DISTINCT CUSTOM_TF FROM :lt_metadata ) AS CUSTOM_TF,
 '0001'  AS POSITION,
 '' AS DIMENSION,
 'REQTSN' AS FIELDNAME,
@@ -204,6 +225,9 @@ SELECT
 :p_app AS APPLICATION_ID,
 ( SELECT DISTINCT ADSO FROM :lt_metadata ) AS ADSO,
 ( SELECT DISTINCT ADSO_VIEW FROM :lt_metadata ) AS ADSO_VIEW,
+( SELECT DISTINCT CUSTOM_VIEW FROM :lt_metadata ) AS CUSTOM_VIEW,
+( SELECT DISTINCT CUSTOM_CDS_VIEW FROM :lt_metadata ) AS CUSTOM_CDS_VIEW,
+( SELECT DISTINCT CUSTOM_TF FROM :lt_metadata ) AS CUSTOM_TF,
 '0002'  AS POSITION,
 '' AS DIMENSION,
 'RECORDMODE' AS FIELDNAME,
@@ -227,28 +251,21 @@ SELECT * from :lt_meta_fields
 
 endmethod.
 endclass.
+REPORT zbpc_dim_app.
 
+PARAMETERS:
+p_env TYPE uj_appset_id DEFAULT 'TRACTEBEL_GLO' ,
+p_app TYPE uj_appl_id DEFAULT 'SGA'.
 
-*&---------------------------------------------------------------------*
-*& Report ZBPC_DIM_APP
-*&---------------------------------------------------------------------*
-*& Specify Environment and Model
-*&---------------------------------------------------------------------*
-report zbpc_dim_app.
+TYPE-POOLS: abap.
 
-parameters:
-p_env type uj_appset_id default 'xx' ,
-p_app type uj_appl_id default 'SGA'.
-
-type-pools: abap.
-
-data:       m3      type string,
-            l_title type sy-title,
-            ls_metadata type ref to data,
+DATA:       m3      TYPE string,
+            l_title TYPE sy-title,
+            ls_metadata TYPE REF TO data,
 *Table to hold the components
-            tab_return type abap_compdescr_tab,
+            tab_return TYPE abap_compdescr_tab,
 *Work area for the component table
-            components like line of tab_return,
+            components LIKE LINE OF tab_return,
             w_typ TYPE REF TO cl_abap_elemdescr,
             lt_tot_comp    TYPE cl_abap_structdescr=>component_table,
             lt_comp        TYPE cl_abap_structdescr=>component_table,
@@ -259,16 +276,19 @@ data:       m3      type string,
             w_dy_line      TYPE REF TO data.
 
 
-field-symbols: <dyn_tab>  type standard table,
+FIELD-SYMBOLS: <dyn_tab>  TYPE STANDARD TABLE,
                <dyn_wa>,
                <dyn_field>.
 
-start-of-selection.
+START-OF-SELECTION.
 
-select
+SELECT
    zbpc_tf_metagen~application_id,
    zbpc_tf_metagen~adso,
    zbpc_tf_metagen~adso_view,
+   zbpc_tf_metagen~custom_view,
+   zbpc_tf_metagen~custom_cds_view,
+   zbpc_tf_metagen~custom_tf,
    zbpc_tf_metagen~position,
    zbpc_tf_metagen~dimension,
    zbpc_tf_metagen~fieldname,
@@ -279,20 +299,20 @@ select
    zbpc_tf_metagen~fields_groupby_cds,
    zbpc_tf_metagen~fields_select_cds,
    zbpc_tf_metagen~fields_tf
- from
+ FROM
   zbpc_tf_metagen( p_appset = @p_env, p_app = @p_app )
-  into table @data(lt_metadata)
+  INTO TABLE @DATA(lt_metadata)
   ##db_feature_mode[amdp_table_function].
 
 CREATE DATA ls_metadata LIKE LINE OF lt_metadata.
 
-concatenate 'Metadata--' p_app '--' into l_title.
+CONCATENATE 'Metadata--' p_app '--' INTO l_title.
 
 
 *Call Perform to get the Int. Table Components
-perform get_int_table_fields using    lt_metadata
-                            changing  tab_return.
-break-point.
+PERFORM get_int_table_fields USING    lt_metadata
+                            CHANGING  tab_return.
+* break-point.
 * LENGTH, DECIMALS, TYPE_KIND, NAME
 
 * for example only, in case we want to remove some fields,
@@ -301,71 +321,71 @@ break-point.
 
 * and pass lt_metadata content into the newly created table
 
-perform callback_alv
-using l_title abap_true lt_metadata.
+PERFORM callback_alv
+USING l_title abap_true lt_metadata.
 *using l_title abap_true <dyn_tab>.
 
-form callback_alv using
-  value(i_title) type sy-title
-  value(i_sort)  type abap_bool
-  it_data        type any table.
+FORM callback_alv USING
+  VALUE(i_title) TYPE sy-title
+  VALUE(i_sort)  TYPE abap_bool
+  it_data        TYPE ANY TABLE.
 
-  if it_data is initial.
-  concatenate 'No data found with : ' p_env '/' p_app  into m3.
-    message i799(rsm1) with m3.
+  IF it_data IS INITIAL.
+  CONCATENATE 'No data found with : ' p_env '/' p_app  INTO m3.
+    MESSAGE i799(rsm1) WITH m3.
 
-  else.
+  ELSE.
 
-    if i_sort = abap_true.
-      sort it_data.
-    endif.
+    IF i_sort = abap_true.
+      SORT it_data.
+    ENDIF.
 
-    call function 'RSDU_CALL_ALV_TABLE'
-      exporting
+    CALL FUNCTION 'RSDU_CALL_ALV_TABLE'
+      EXPORTING
         i_title   = i_title
         i_ta_data = it_data.
 
-  endif.
+  ENDIF.
 
-endform.                    "callback_alv
+ENDFORM.                    "callback_alv
 
-form get_int_table_fields  using    t_data type any table
-                           changing t_return type abap_compdescr_tab.
+FORM get_int_table_fields  USING    t_data TYPE ANY TABLE
+                           CHANGING t_return TYPE abap_compdescr_tab.
 
-  data:
-  oref_table type ref to cl_abap_tabledescr,
-  oref_struc type ref to cl_abap_structdescr,
-  oref_error type ref to cx_root,
-  text type string.
+  DATA:
+  oref_table TYPE REF TO cl_abap_tabledescr,
+  oref_struc TYPE REF TO cl_abap_structdescr,
+  oref_error TYPE REF TO cx_root,
+  text TYPE string.
 *Get the description of data object type
-  try.
+  TRY.
       oref_table ?=
       cl_abap_tabledescr=>describe_by_data( t_data ).
-    catch cx_root into oref_error.
+    CATCH cx_root INTO oref_error.
       text = oref_error->get_text( ).
-      write: / text.
-      exit.
-  endtry.
+      WRITE: / text.
+      EXIT.
+  ENDTRY.
 *Get the line type
-  try.
+  TRY.
       oref_struc ?= oref_table->get_table_line_type( ).
-    catch cx_root into oref_error.
+    CATCH cx_root INTO oref_error.
       text = oref_error->get_text( ).
 *      write: / text.
-      exit.
-  endtry.
+      EXIT.
+  ENDTRY.
 **  begin of abap_compdescr,
 *    length    type i,
 *    decimals  type i,
 *    type_kind type abap_typekind,
 *    name      type abap_compname,
 *  end of abap_compdescr,
-  append lines of oref_struc->components to t_return.
+  APPEND LINES OF oref_struc->components TO t_return.
   CLEAR: components.
 
-endform.                    " GET_INT_TABLE_FIELDS
+ENDFORM.                    " GET_INT_TABLE_FIELDS
 
-FORM build_another_it using w_data type any table.
+FORM build_another_it USING w_data TYPE ANY TABLE.
 
  LOOP AT w_data INTO components.
   CASE components-type_kind.
@@ -409,4 +429,4 @@ FORM build_another_it using w_data type any table.
       )->execute( EXPORTING source      = lt_metadata
                   CHANGING  destination = <dyn_tab> ).
 
-endform.                    "build_another_it
+ENDFORM.                    "build_another_it
