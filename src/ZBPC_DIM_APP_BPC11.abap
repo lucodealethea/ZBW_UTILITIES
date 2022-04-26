@@ -1,7 +1,60 @@
-* ABAP CDS ZBPC_DIMAPP2 describes BPC Models
+* ABAP CDS ZBPC_DIMAPP2, ZBPC_DIM_ATTR describes BPC Models
 * Table Function on ZBPC_DIMAPP2 returns list of fields to build a CDS view or a TF 
 * SE38 ZBPC_DIM_APP returns the list of fields(to build CDS View or AMDP/TF) with option to delete column (sensitive data)
 * Next step will be to generate automatically if any change occured on BPC model, the AMDP Class along with TF with Code Composer
+
+@AbapCatalog.sqlViewName: 'ZVBPC_ATTRIBUTES'
+@EndUserText.label: 'BPC Dimension Attributes'
+@ClientDependent: false
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+
+define view ZBPC_ATTRIBUTES as 
+select from uja_dim_attr as A
+inner join uja_dimension as D 
+    on A.appset_id = D.appset_id
+    and A.dimension = D.dimension
+    and A.mandt = D.mandt and D.mandt = $session.client
+{
+key A.appset_id
+,key A.dimension
+,D.dim_type
+,D.dim_type_index
+,D.ref_dim
+,D.num_hier
+,D.tech_name
+,D.server_version
+,D.file_version
+,D.file_lock
+,D.process_state
+,D.locked_by
+,D.caption
+,D.hier_time_dep
+,D.process_date
+,D.process_time
+,D.struc_modif_date
+,D.struc_modif_time
+,D.mbr_modif_date
+,D.mbr_modif_time
+,D.data_table
+,concat('/B28/P',substring(D.tech_name,7,12))as mdata_bw_table
+,D.desc_table
+,D.hier_data_table
+,D.tda_table
+,A.tech_name as attr_tech_name
+,replace(A.tech_name,'/CPMB/','/B28/S_') as bw_field
+,A.attribute_name
+,A.attribute_size
+,A.attribute_type
+,A.time_dependent
+,A.caption as attr_caption
+,A.f_display
+,A.f_generate
+,A.f_uppercase
+,A.valid_id    
+}
+
 @AbapCatalog.sqlViewName: 'ZVBPC_DIMAPP2'
 @EndUserText.label: 'MetaData For BPC Dimensions (short)'
 @AbapCatalog.compiler.compareFilter: true
@@ -27,6 +80,7 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     key DA.application_id,
     key D.dimension,
     D.tech_name,
+    D.num_hier, 
     concat('/B28/S_',substring(D.tech_name,7,12)) as FieldName,
     concat(substring(D.tech_name,1,6),substring(D.tech_name,7,12)) as FieldName2, 
     concat(replace(MD.infocube,'/CPMB/','/B28/A'),'7') as ADSO_VIEW,
@@ -44,7 +98,6 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     D.hier_data_table as hier_table
                               
 }                                                                                                    
-
 @EndUserText.label: 'Generate MetaData From BPC Models'
 @ClientDependent: false
 @AccessControl.authorizationCheck: #NOT_REQUIRED
@@ -77,7 +130,7 @@ returns {
 }
 implemented by method ZCL_BPC_METADATA=>GET_METADATA_FOR_MODEL;
 
---------------------BPC11-----------------------------
+--------------------BPC11---------------------------------------------------
 class zcl_bpc_metadata definition
   public
   final
@@ -127,6 +180,9 @@ METHOD  GET_METADATA_FOR_MODEL
           OPTIONS READ-ONLY
           USING ZVBPC_DIMAPP2 DD03L T000 "DD03K
           .
+ declare v_sys char( 10 );
+
+ SELECT LOGSYS INTO v_sys FROM "T000" WHERE "MANDT" = '100';
 
  lt_metadata=
  SELECT
@@ -250,10 +306,12 @@ SELECT * from :lt_meta_fields
 
 endmethod.
 endclass.
+
+----------------------------------------------------------------------------
 REPORT zbpc_dim_app.
 
 PARAMETERS:
-p_env TYPE uj_appset_id DEFAULT 'TRACTEBEL_GLO' ,
+p_env TYPE uj_appset_id DEFAULT 'xxx' ,
 p_app TYPE uj_appl_id DEFAULT 'SGA'.
 
 TYPE-POOLS: abap.
