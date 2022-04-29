@@ -6,7 +6,7 @@
 
 @AbapCatalog.sqlViewName: 'ZVBPC_DIM_HIERS'
 @EndUserText.label: 'MetaData For BPC Hierarchies'
-@ClientDependent: false
+@ClientHandling.type: #CLIENT_DEPENDENT
 @AbapCatalog.compiler.compareFilter: true
 @AbapCatalog.preserveKey: true
 @AccessControl.authorizationCheck: #NOT_REQUIRED
@@ -14,11 +14,13 @@
 define view ZBPC_DIM_HIERS as 
 select from uja_dim_hier2 as H
 inner join uja_dimension as D
-    on H.appset_id = D.appset_id and H.dimension = D.dimension and H.mandt = D.mandt and H.mandt = $session.client
+    on H.appset_id = D.appset_id and H.dimension = D.dimension and H.mandt = D.mandt 
+//and H.mandt = $session.client
 inner join uja_dim_hie_map2 as H2 on H2.dim_tech_name = D.tech_name and H2.hier_name = H.hierarchy_name and H2.mandt = H.mandt
 inner join rshiedir as DIR on DIR.iobjnm = D.tech_name and DIR.hienm = H.hierarchy_name and DIR.objvers = 'A'    
 //b28/h
 {
+key H.mandt,
 key D.appset_id as AppsetId,
 key DIR.hieid,
 key D.dimension as Dimension,
@@ -49,7 +51,7 @@ D.tda_table as TdaTable
 
 @AbapCatalog.sqlViewName: 'ZVBPC_ATTRIBUTES'
 @EndUserText.label: 'BPC Dimension Attributes'
-@ClientDependent: false
+@ClientHandling.type: #CLIENT_DEPENDENT
 @AbapCatalog.compiler.compareFilter: true
 @AbapCatalog.preserveKey: true
 @AccessControl.authorizationCheck: #NOT_REQUIRED
@@ -59,9 +61,12 @@ select from uja_dim_attr as A
 inner join uja_dimension as D 
     on A.appset_id = D.appset_id
     and A.dimension = D.dimension
-    and A.mandt = D.mandt and D.mandt = $session.client
+    and A.mandt = D.mandt 
+//    and D.mandt = $session.client
+left outer join trese as RW on RW.name = A.attribute_name    
 {
-key A.appset_id
+key A.mandt
+,key A.appset_id
 ,key A.dimension
 ,D.dim_type
 ,D.dim_type_index
@@ -88,7 +93,7 @@ key A.appset_id
 ,D.tda_table
 ,A.tech_name as attr_tech_name
 ,replace(A.tech_name,'/CPMB/','/B28/S_') as bw_field
-,A.attribute_name
+,case when RW.sourcehint is null then A.attribute_name else concat(A.attribute_name,'1') end as attribute_name
 ,A.attribute_size
 ,A.attribute_type
 ,A.time_dependent
@@ -421,7 +426,7 @@ PERFORM get_int_table_fields USING    lt_metadata
 * perform build_another_it using tab_return.
 
 * and pass lt_metadata content into the newly created table
-
+SORT lt_metadata BY POSITION.
 PERFORM callback_alv
 USING l_title abap_true lt_metadata.
 *using l_title abap_true <dyn_tab>.
