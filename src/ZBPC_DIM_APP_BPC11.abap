@@ -536,3 +536,354 @@ FORM build_another_it USING w_data TYPE ANY TABLE.
                   CHANGING  destination = <dyn_tab> ).
 
 ENDFORM.                    "build_another_it
+
+------------------------------------------WBS_L1 Hierarchy (not with Child-Parent CDS Hierarchy ) -------------------
+@AbapCatalog.sqlViewName: 'ZVBW_WBS_L1_H'
+@EndUserText.label: 'WBS_L1 Hierarchies'
+@ClientHandling.type: #CLIENT_DEPENDENT
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+// ZODCDM8
+define view ZBW_WBS_L1_H as
+select from /b28/hzodcdm8 as H
+inner join ZBPC_DIM_HIERS as MH on MH.hieid = H.hieid and MH.AppsetId = 'TRACTEBEL_TEMIS' and MH.Dimension = 'WBS_L1' 
+//and MH.mandt = $session.client
+left outer join rsthiernode as T on T.hieid = H.hieid and H.nodename = T.nodename and H.objvers = T.objvers and H.objvers = 'A'
+and T.langu = $session.system_language
+
+left outer join /b28/tzodcdm8 as MT on MT./b28/s_zodcdm8 = H.nodename and MT.langu = $session.system_language
+left outer join /b28/hzodcdm8 as H2 on H.parentid = H2.nodeid and H.hieid = H2.hieid
+left outer join /b28/tzodcdm8 as MT2 on MT2./b28/s_zodcdm8 = H2.nodename and MT2.langu = $session.system_language
+left outer join /b28/pzodcdm8 as BM on H.nodename = BM./b28/s_zodcdm8 and BM.objvers = H.objvers
+{
+key MH.mandt,
+key H.hieid,
+key MH.caption as hier_name,
+key cast(H.parentid  as abap.int8) as parent_id,
+key cast(H.nodeid as abap.int8) as node_id,
+H.nodename,
+H.iobjnm,
+coalesce(coalesce(T.txtmd,T.txtsh),MT.txtlg) as txtmdtx,
+cast(H.parentid as rsparent ) as parentido,
+cast(H.nodeid as rshienodid ) as nodeido,
+H2.nodename as parent_nodename,
+MT2.txtlg as parent_txtmdtx,
+// to get the leafs IS_NODE = N or HIERARCHY_TREE_SIZE = 1
+BM./b28/s_calc as IS_NODE,
+BM./b28/s_hir as HIR,
+H.tlevel,
+/b28/s_scaling as SCALING
+,/b28/s_zophxsg as APPLICANT
+,/b28/s_zopvcp6 as BUSCLASS1
+,/b28/s_zopu5r4 as BUSCLASS2
+,/b28/s_zop5kh0 as BUS_AREA
+,/b28/s_zopcv9d as COMP_CODE
+,/b28/s_zoptkj3 as COUNTRY
+,/b28/s_zopunxq as COUNTRY_SOLDTO
+,/b28/s_zopnphb as FUNCTIONAL_AREA
+,/b28/s_zope01s as PER_RES
+,/b28/s_zop9my8 as PROFIT_CCTR
+,/b28/s_zopg426 as RAKEY_L1
+,/b28/s_zop31e5 as RESP_CC
+,/b28/s_zopoque as SEGMENT
+,/b28/s_zop6bdt as SHIP_TO
+,/b28/s_zop0txi as SOLD_TO
+,/b28/s_zopznyo as WBS_SYS_STATUS
+  
+}
+--------------------------------------------TF for Hierarchy Descendants --------------------------
+@EndUserText.label: 'Descendants for WBS_L1 Hierarchy'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@ClientHandling.type: #CLIENT_DEPENDENT
+// PARENTH1 KQQMSUS1BR85SOLHUEDS62D6P
+//SELECT * FROM "ZTF_WBS_L1_D"('ALL_WBSL1','ALL_WBSL1') WHERE START_ID = CHILDID;
+define table function ZTF_WBS_L1_D
+with parameters 
+
+p_hiename : uj_caption,
+p_nodename : rsshnodename,
+@Environment.systemField: #CLIENT
+iv_client  : abap.clnt
+returns {
+  mandt    : abap.clnt;
+  nodename : rsshnodename;
+  nodedesc : /bi0/oibpctxtlg;
+  parent_nodename : rsshnodename;
+  is_node : esh_e_ltxt_is_node_field;
+  start_id: abap.int8;
+  parentid: abap.int8;
+  childid: abap.int8;
+  hieid : rshieid;
+  hier_name : uj_caption;
+  h_level : rstlevel;
+  nodeselected : rsshnodename;  
+  
+APPLICANT :   /b28/oizophxsg  ;
+BUSCLASS1   :   /b28/oizopvcp6  ;
+BUSCLASS2   :   /b28/oizopu5r4  ;
+BUS_AREA    :   /b28/oizop5kh0  ;
+COMP_CODE   :   /b28/oizopcv9d  ;
+COUNTRY :   /b28/oizoptkj3  ;
+COUNTRY_SOLDTO  :   /b28/oizopunxq  ;
+FUNCTIONAL_AREA :   /b28/oizopnphb  ;
+PER_RES :   /b28/oizope01s  ;
+PROFIT_CCTR :   /b28/oizop9my8  ;
+RAKEY_L1    :   /b28/oizopg426  ;
+RESP_CC :   /b28/oizop31e5  ;
+SEGMENT :   /b28/oizopoque  ;
+SHIP_TO :   /b28/oizop6bdt  ;
+SOLD_TO :   /b28/oizop0txi  ;
+WBS_SYS_STATUS  :   /b28/oizopznyo  ;
+
+SCALING :   /b28/oiscaling  ;
+HIR :   /b28/oihir  ;
+  
+ 
+}
+implemented by method zcl_bpc_amdp_hd_wbs_l1=>get_descendants;
+-------------------------------------------------CLASS zcl_bpc_amdp_hd_wbs_l1 --------------------
+
+CLASS zcl_bpc_amdp_hd_wbs_l1 DEFINITION
+  public
+  final
+  create public .
+
+public section.
+INTERFACES if_amdp_marker_hdb .
+TYPES:
+BEGIN OF g_t_wbs_l1_h,
+  nodename TYPE RSSHNODENAME,
+  nodedesc TYPE /BI0/OIBPCTXTLG,
+  parent_nodename TYPE RSSHNODENAME,
+  is_node TYPE ESH_E_LTXT_IS_NODE_FIELD,
+  start_id TYPE int8,
+  parentid TYPE int8,
+  childid TYPE int8,
+  hieid TYPE RSHIEID,
+  hier_name TYPE UJ_CAPTION,
+  h_level TYPE RSTLEVEL,
+
+
+SCALING TYPE    /B28/OISCALING  ,
+HIR TYPE    /B28/OIHIR  ,
+
+END OF g_t_wbs_l1_h.
+
+CLASS-METHODS get_descendants
+FOR TABLE FUNCTION ZTF_WBS_L1_D
+.
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_BPC_AMDP_HD_wbs_l1 IMPLEMENTATION.
+
+
+method get_descendants
+  BY DATABASE FUNCTION FOR HDB
+
+  LANGUAGE SQLSCRIPT
+  USING ZVBW_WBS_L1_H
+  .
+--'KZ2TISJ3SHMKUJ02XVQ0GCPS4' NET_INCOME_TE 0 and nodename = 'FD0E' ( should be optional but other hier have several level1 nodes)
+-- next select should substituted with a Child-Parent ABAP CDS Hierarchy ---------
+cte_hier=
+select *
+from hierarchy(
+source (
+select mandt, hieid, hier_name, node_id as node_id,
+parent_id as parent_id,
+nodename,
+parent_nodename,
+txtmdtx,
+is_node,
+:p_nodename as nodeselected,
+
+APPLICANT
+,BUSCLASS1
+,BUSCLASS2
+,BUS_AREA
+,COMP_CODE
+,COUNTRY
+,COUNTRY_SOLDTO
+,FUNCTIONAL_AREA
+,PER_RES
+,PROFIT_CCTR
+,RAKEY_L1
+,RESP_CC
+,SEGMENT
+,SHIP_TO
+,SOLD_TO
+,WBS_SYS_STATUS
+
+,SCALING
+,HIR
+
+
+from ZVBW_WBS_L1_H where hier_name = :p_hiename and mandt = :iv_client )
+start where nodename = :p_nodename)
+;
+cte_desc=
+select mandt,
+start_id as nodeid,
+node_id AS childid,
+parent_id AS parentid,
+parent_nodename,
+nodename,
+txtmdtx,
+is_node,
+hieid, hier_name,
+h_level,
+nodeselected,
+
+APPLICANT
+,BUSCLASS1
+,BUSCLASS2
+,BUS_AREA
+,COMP_CODE
+,COUNTRY
+,COUNTRY_SOLDTO
+,FUNCTIONAL_AREA
+,PER_RES
+,PROFIT_CCTR
+,RAKEY_L1
+,RESP_CC
+,SEGMENT
+,SHIP_TO
+,SOLD_TO
+,WBS_SYS_STATUS
+
+,SCALING
+,HIR
+
+from hierarchy_descendants(
+source :cte_hier
+START ( SELECT hierarchy_rank AS start_rank,
+node_id AS start_id,
+hierarchy_level as h_level
+FROM :cte_hier ) )
+order by nodeid asc,
+childid asc
+;
+RETURN
+SELECT
+mandt,
+nodename,
+txtmdtx as nodedesc,
+parent_nodename,
+is_node,
+nodeid as start_id,
+parentid,
+childid,
+hieid,
+hier_name,
+h_level,
+nodeselected,
+
+APPLICANT
+,BUSCLASS1
+,BUSCLASS2
+,BUS_AREA
+,COMP_CODE
+,COUNTRY
+,COUNTRY_SOLDTO
+,FUNCTIONAL_AREA
+,PER_RES
+,PROFIT_CCTR
+,RAKEY_L1
+,RESP_CC
+,SEGMENT
+,SHIP_TO
+,SOLD_TO
+,WBS_SYS_STATUS
+
+,SCALING
+,HIR
+FROM :cte_desc
+;
+
+endmethod.
+ENDCLASS.
+
+----------------- with a Child-Parent ABAP CDS Hierarchy weird in 753 ---------
+define hierarchy ZBPC_WBS_L1_HIER 
+  with parameters
+    p_hieid : rshieid   
+    , p_id : rshienodid
+  as parent child hierarchy (
+    source ZBPC_WBS_L1_HS
+       child to parent association _relat
+//  start where id = :p_id and hieid = :p_hieid
+//    = 'ALL_WBSL1' and 'RISK_OPPORT' 'RFZGGCCK2H79IVG7ISTJXRFZK'    
+    start where parentid = :p_id and hieid = :p_hieid
+//    = '00000003' 'RISK_OPPORT' ie. parentid of base member   
+    siblings order by id ascending
+    multiple parents allowed
+  )
+  {
+id,
+parentid,
+    name,
+    txtmdtx,
+    iobjnm,
+    parent_nodename,
+    IS_NODE,
+HIR,
+tlevel,
+    
+$node.hierarchy_rank as h_rank,
+$node.hierarchy_tree_size as h_tree_size,
+$node.hierarchy_parent_rank as h_parent_rank,
+$node.hierarchy_level as h_level,
+$node.hierarchy_is_cycle as h_is_cycle,
+$node.hierarchy_is_orphan as h_is_orphan,
+$node.node_id as h_node_id,
+$node.parent_id as h_parent_id    
+    
+}
+@AbapCatalog.sqlViewName: 'ZVBPC_WBS_L1_HS'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'WBS_L1 Hierarchy Source'
+define view ZBPC_WBS_L1_HS as select from ZBW_WBS_L1_H
+association [1..*] to ZBPC_WBS_L1_HS as _relat
+    on $projection.id = _relat.parentid 
+//    and $projection.parentid = _relat.id 
+    and $projection.hieid = _relat.hieid
+  {
+    key node_id as id,
+    key parent_id as parentid,
+    key hieid,
+    hier_name,
+    nodename as name,
+    txtmdtx,
+    iobjnm
+,parent_nodename
+,parent_txtmdtx
+,IS_NODE
+,HIR
+,tlevel
+,SCALING
+,APPLICANT
+,BUSCLASS1
+,BUSCLASS2
+,BUS_AREA
+,COMP_CODE
+,COUNTRY
+,COUNTRY_SOLDTO
+,FUNCTIONAL_AREA
+,PER_RES
+,PROFIT_CCTR
+,RAKEY_L1
+,RESP_CC
+,SEGMENT
+,SHIP_TO
+,SOLD_TO
+,WBS_SYS_STATUS,
+    _relat // Make association public
+}
+
