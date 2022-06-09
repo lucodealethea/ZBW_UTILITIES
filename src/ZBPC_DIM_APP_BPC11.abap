@@ -223,7 +223,7 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     concat(concat(concat('" WHERE LOCATE_REGEXPR( ',concat('''(?=.*[a-z])',''' in "')),replace(D.tech_name,'/CPMB/','/B28/S_')),'") = 1;') as regular_exp
                               
 }                                                                                                    
-where D.appset_id = 'TRACTEBEL_GLO' or D.appset_id = 'TRACTEBEL_TEMIS'
+where D.appset_id = 'XXX' or D.appset_id = 'YYY'
 
 
 -----------------------------------------ZBPC_TF_METAGEN--------------
@@ -570,7 +570,7 @@ endclass. "end class zcl_bpc_metadata definition
 REPORT zbpc_dim_app.
 
 PARAMETERS:
-p_env TYPE uj_appset_id DEFAULT 'TRACTEBEL_GLO' ,
+p_env TYPE uj_appset_id DEFAULT 'XXXX_GLO' ,
 p_app TYPE uj_appl_id DEFAULT 'SGA'.
 
 TYPE-POOLS: abap.
@@ -757,7 +757,7 @@ ENDFORM.                    "build_another_it
 // ZODCDM8
 define view ZBW_WBS_L1_H as
 select from /b28/hzodcdm8 as H
-inner join ZBPC_DIM_HIERS as MH on MH.hieid = H.hieid and MH.AppsetId = 'TRACTEBEL_TEMIS' and MH.Dimension = 'WBS_L1' 
+inner join ZBPC_DIM_HIERS as MH on MH.hieid = H.hieid and MH.AppsetId = 'XXXX_TEMIS' and MH.Dimension = 'WBS_L1' 
 //and MH.mandt = $session.client
 left outer join rsthiernode as T on T.hieid = H.hieid and H.nodename = T.nodename and H.objvers = T.objvers and H.objvers = 'A'
 and T.langu = $session.system_language
