@@ -51,7 +51,7 @@ D.tda_table as TdaTable
 
 @AbapCatalog.sqlViewName: 'ZVBPC_ATTRIBUTES'
 @EndUserText.label: 'BPC Dimension Attributes'
-@ClientHandling.type: #CLIENT_DEPENDENT
+@ClientDependent: false
 @AbapCatalog.compiler.compareFilter: true
 @AbapCatalog.preserveKey: true
 @AccessControl.authorizationCheck: #NOT_REQUIRED
@@ -61,13 +61,13 @@ select from uja_dim_attr as A
 inner join uja_dimension as D 
     on A.appset_id = D.appset_id
     and A.dimension = D.dimension
-    and A.mandt = D.mandt 
-//    and D.mandt = $session.client
+    and A.mandt = D.mandt and D.mandt = $session.client
 left outer join trese as RW on RW.name = A.attribute_name    
 {
-key A.mandt
-,key A.appset_id
+key A.appset_id
 ,key A.dimension
+,key A.tech_name as attr_tech_name
+,case when RW.sourcehint is null then A.attribute_name else concat(A.attribute_name,'1') end as attribute_name
 ,D.dim_type
 ,D.dim_type_index
 ,D.ref_dim
@@ -88,12 +88,15 @@ key A.mandt
 ,D.mbr_modif_time
 ,D.data_table
 ,concat('/B28/P',substring(D.tech_name,7,12))as mdata_bw_table
+,case when A.attribute_name = 'EVDESCRIPTION' then ''
+else replace(A.tech_name,'/CPMB/','/B28/S') 
+end as mdats_bw_table
 ,D.desc_table
 ,D.hier_data_table
 ,D.tda_table
-,A.tech_name as attr_tech_name
-,replace(A.tech_name,'/CPMB/','/B28/S_') as bw_field
-,case when RW.sourcehint is null then A.attribute_name else concat(A.attribute_name,'1') end as attribute_name
+
+,replace(A.tech_name,'/CPMB/','/B28/S_') as bw_fieldname
+
 ,A.attribute_size
 ,A.attribute_type
 ,A.time_dependent
@@ -101,7 +104,73 @@ key A.mandt
 ,A.f_display
 ,A.f_generate
 ,A.f_uppercase
-,A.valid_id    
+,A.valid_id
+,concat(concat('SELECT DISTINCT "',replace(A.tech_name,'/CPMB/','/B28/S_')),'" AS ID,') as string_one
+,concat(concat('''',A.attribute_name),''' AS ATTRIBUTE,') as string_two
+,concat(concat('''',A.dimension),''' AS DIM FROM "') as string_three
+//,concat('" WHERE LOCATE_REGEXPR( ',concat('''(?=.*[a-z])',''' in "')) as regular_exp
+
+,concat(concat(concat('" WHERE LOCATE_REGEXPR( ',concat('''(?=.*[a-z])',''' in "')),replace(A.tech_name,'/CPMB/','/B28/S_')),'") = 1;') as regular_exp
+
+}
+
+@AbapCatalog.sqlViewName: 'ZVBPC_DIM_ATTR'
+@EndUserText.label: 'BPC Dimension Attributes'
+@ClientDependent: false
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+
+define view ZBPC_DIM_ATTR as 
+select distinct from zvbpc_attributes as A
+left outer join dd03l as DD on DD.tabname = A.data_table
+and DD.fieldname = A.attr_tech_name
+left outer join dd03l as DDBW on DDBW.tabname = A.mdata_bw_table
+and DDBW.fieldname = A.bw_fieldname
+left outer join ujm_iobj_slt as F on F.iobjnm = A.tech_name 
+and F.mandt = $session.client
+
+{
+key A.appset_id,
+key A.dimension,
+key A.tech_name,
+key A.attribute_name,
+key A.attr_tech_name,
+case A.attribute_name
+when 'EVDESCRIPTION' then '0096'
+when 'CALC' then '0097'
+when 'SCALING' then '0098'
+when 'HIR' then '0099'
+else DD.position end as sortnr,
+case A.attribute_name
+when 'EVDESCRIPTION' then '/BI0/OBPCTXTLG'    
+else    DDBW.rollname end as rollname,
+    F.formula as IS_FORMULA,
+    F.tabname,
+    A.attribute_size,
+    A.attribute_type,
+    A.time_dependent,
+    A.attr_caption,
+    A.f_display,
+    A.f_generate,
+    A.f_uppercase,
+    A.valid_id,    
+    A.num_hier, 
+    A.data_table,                                                                                      
+    A.mdata_bw_table,
+    A.mdats_bw_table,  
+    A.bw_fieldname,  
+//descendants table where NIV = 0 equals  data_table where /CPMB/CALC = N
+// but have to exclude hier nodes without children with IS_BAS_EQ_NODE = Y 
+// this property is custom and exists only in OBS  
+    replace(A.tech_name,'/CPMB/','/1CPMB/P') as desc_table,
+    A.desc_table as text_tabl,                                                                       
+    A.hier_data_table as hier_table,
+
+    concat(concat(concat(',"',A.bw_fieldname),'"  AS'),concat(concat(' "',A.attribute_name),'"')) as select_string,
+    //concat(concat(concat(concat('SELECT DISTINCT "',A.bw_fieldname),'"  AS ID'),concat(concat(concat(' FROM "',A.mdats_bw_table),''),A.regular_exp)),concat(A.bw_fieldname,'") = 1;')) as select_string2
+    concat(concat(concat(A.string_one,A.string_two),A.string_three),mdats_bw_table) as lowerc_string1,
+    A.regular_exp 
 }
 
 @AbapCatalog.sqlViewName: 'ZVBPC_DIMAPP2'
@@ -129,9 +198,10 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     key DA.application_id,
     key D.dimension,
     D.tech_name,
+    concat('/B28/OI',substring(D.tech_name,7,12)) as RollName,
     D.num_hier, 
-    concat('/B28/S_',substring(D.tech_name,7,12)) as FieldName,
-    concat(substring(D.tech_name,1,6),substring(D.tech_name,7,12)) as FieldName2, 
+    concat('/B28/S_',substring(D.tech_name,7,12)) as bw_fieldname,
+    concat(substring(D.tech_name,1,6),substring(D.tech_name,7,12)) as bpc_fieldname, 
     concat(replace(MD.infocube,'/CPMB/','/B28/A'),'7') as ADSO_VIEW,
     cast(concat('ZVBPC_',DA.application_id) as TABLE_NAME) as CUSTOM_VIEW,
     cast(concat('ZBPC_',DA.application_id) as DDLNAME) as CUSTOM_CDS_VIEW,
@@ -139,14 +209,24 @@ inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id
     MD.infocube,     
     D.data_table,                                                                                      
     concat('/B28/P',substring(D.tech_name,7,12))as mdata_bw_table,
+//SID table    
+    concat('/B28/S',substring(D.tech_name,7,12))as mdats_bw_table,
 //descendants table where NIV = 0 equals  data_table where /CPMB/CALC = N
 // but have to exclude hier nodes without children with IS_BAS_EQ_NODE = Y 
 // this property is custom and exists only in OBS  
     replace(D.tech_name,'/CPMB/','/1CPMB/P') as desc_table,
     D.desc_table as text_tabl,                                                                       
-    D.hier_data_table as hier_table
+    D.hier_data_table as hier_table,
+    concat(concat('SELECT DISTINCT "',replace(D.tech_name,'/CPMB/','/B28/S_')),'" AS ID,') as string_one,
+    concat(concat('''','IS_DIMENSION'),''' AS ATTRIBUTE,') as string_two,
+    concat(concat(concat('''',D.dimension),''' AS DIM FROM "'),replace(D.tech_name,'/CPMB/','/B28/S')) as string_three,
+    concat(concat(concat('" WHERE LOCATE_REGEXPR( ',concat('''(?=.*[a-z])',''' in "')),replace(D.tech_name,'/CPMB/','/B28/S_')),'") = 1;') as regular_exp
                               
 }                                                                                                    
+where D.appset_id = 'TRACTEBEL_GLO' or D.appset_id = 'TRACTEBEL_TEMIS'
+
+
+-----------------------------------------ZBPC_TF_METAGEN--------------
 @EndUserText.label: 'Generate MetaData From BPC Models'
 @ClientDependent: false
 @AccessControl.authorizationCheck: #NOT_REQUIRED
