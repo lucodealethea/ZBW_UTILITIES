@@ -1,0 +1,58 @@
+@AbapCatalog.sqlViewName: 'ZVBPC_DIM_APPL'
+@AbapCatalog.compiler.compareFilter: true
+@ClientHandling.type: #CLIENT_DEPENDENT
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZBPC_DIM_APPL'
+
+//* ABAP CDS ZBPC_DIM_APPL ZBPC_ATTRIBUTES ZBPC_DIM_ATTR ZVBPC_DIM_HIERS
+//* describes BPC Models/Dimensions/Hierarchies
+//* Table Function on ZBPC_DIMAPP2 returns list of fields to build a CDS view or a TF 
+//* SE38 ZBPC_DIM_APP returns the list of fields(to build CDS View or AMDP/TF) with option to delete column (sensitive data)
+//* Next step will be to generate automatically if any change occured on BPC model, the AMDP Class along with TF with Code Composer
+//* CDS Table Functions for Hierarchy Browsing (Ancestors/Descendants) that can easily be used in UJ_CUSTOM_LOGIC calling an AMDP
+define view ZBPC_DIM_APPL as
+select from uja_dimension as D                                            
+inner join uja_dim_appl as DA                                                                        
+    on D.mandt = DA.mandt                                                                            
+    and D.appset_id = DA.appset_id                                                                   
+    and D.dimension = DA.dimension and D.mandt = $session.client
+inner join uja_appl as AP on AP.mandt = DA.mandt and AP.appset_id = DA.appset_id and AP.application_id = DA.application_id     
+inner join uja_appset_info as DS on DS.mandt = DA.mandt and DS.appset_id = DA.appset_id 
+inner join uja_dimensiont as TX on D.mandt = TX.mandt                                                
+and D.appset_id = TX.appset_id                                                                       
+and D.dimension = TX.dimension                                                                       
+and TX.langu = 'E'                                                                                   
+left outer join dd07v as VD on D.dim_type = VD.domvalue_l and VD.domname='UJ_DIM_TYPE' and VD.ddlanguage = 'E'
+inner join uja_appl as MD on MD.mandt = DA.mandt and MD.appset_id = DA.appset_id and DA.application_id = MD.application_id                                                                                           
+     {                                                                                               
+    key D.appset_id,                                                                                     
+    key DA.application_id,
+    key D.dimension,
+    D.tech_name,
+    concat('/B28/OI',substring(D.tech_name,7,12)) as RollName,
+    D.num_hier, 
+    concat('/B28/S_',substring(D.tech_name,7,12)) as bw_fieldname,
+    concat(substring(D.tech_name,1,6),substring(D.tech_name,7,12)) as bpc_fieldname, 
+    concat(replace(MD.infocube,'/CPMB/','/B28/A'),'7') as ADSO_VIEW,
+    cast(concat('ZVBPC_',DA.application_id) as table_name) as CUSTOM_VIEW,
+    cast(concat('ZBPC_',DA.application_id) as ddlname) as CUSTOM_CDS_VIEW,
+    cast(concat('ZBPC_TF_',DA.application_id) as ddlname) as CUSTOM_TF,          
+    MD.infocube,     
+    D.data_table,                                                                                      
+    concat('/B28/P',substring(D.tech_name,7,12))as mdata_bw_table,
+//SID table    
+    concat('/B28/S',substring(D.tech_name,7,12))as mdats_bw_table,
+//descendants table where NIV = 0 equals  data_table where /CPMB/CALC = N
+// but have to exclude hier nodes without children with IS_BAS_EQ_NODE = Y 
+// this property is custom and exists only in OBS  
+    replace(D.tech_name,'/CPMB/','/1CPMB/P') as desc_table,
+    D.desc_table as text_tabl,                                                                       
+    D.hier_data_table as hier_table,
+    concat(concat('SELECT DISTINCT "',replace(D.tech_name,'/CPMB/','/B28/S_')),'" AS ID,') as string_one,
+    concat(concat('''','IS_DIMENSION'),''' AS ATTRIBUTE,') as string_two,
+    concat(concat(concat('''',D.dimension),''' AS DIM FROM "'),replace(D.tech_name,'/CPMB/','/B28/S')) as string_three,
+    concat(concat(concat('" WHERE LOCATE_REGEXPR( ',concat('''(?=.*[a-z])',''' in "')),replace(D.tech_name,'/CPMB/','/B28/S_')),'") = 1;') as regular_exp
+                              
+}                                                                                                    
+where D.appset_id = 'MYAPPSET_ID'
