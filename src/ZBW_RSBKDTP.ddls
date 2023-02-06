@@ -1,0 +1,25 @@
+@AbapCatalog.sqlViewName: 'ZVBW_RSBKDTP'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'View to Get the trfrs for SRC/Target DTP'
+define view ZBW_RSBKDTP 
+as select from ZBW_TF_RSBKDTP as DTP
+{
+key DTP.SRC,
+key DTP.ODP,
+key DTP.DTP,
+DTP.SRCTP,
+DTP.SRCTLOGO,
+DTP.TGT,
+DTP.TGTTP,
+DTP.TGTTLOGO,
+DTP.UPDMODE,
+DTP.DELTAONLYONCE,
+DTP.TRANID,
+DTP.STARTROUTINE,
+DTP.ENDROUTINE,
+DTP.EXPERT,
+DTP.TRANPROG
+    
+}
