@@ -1,0 +1,26 @@
+@ClientHandling.type: #CLIENT_INDEPENDENT
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'ZBW_TF_RSBKDTP'
+
+define table function ZBW_TF_RSBKDTP
+
+returns 
+{
+key SRC : rsbksrcnm;
+key ODP : rstxtmd;
+key DTP : rsbkdtpnm;
+SRCTP : rsbksrctp;
+SRCTLOGO : rsbksrctlogo;
+TGT : rsbktgtnm;
+TGTTP : rsbktgttp;
+TGTTLOGO : rsbktgttlogo ;
+UPDMODE : rsbkupdmode ;
+DELTAONLYONCE : rsbkdeltaonlyonce;
+TRANID : rstranid ;
+STARTROUTINE : rssguid25;
+ENDROUTINE : rssguid25;
+EXPERT : rssguid25;
+TRANPROG : rstran_progid;
+
+}
+implemented by method ZCL_BW_RSBKDTP=>read_dtp;
