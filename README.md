@@ -1,12 +1,11 @@
 # ZBW_UTILITIES
-Utilities such as views in BW or BPC
+Utilities such as views in BW or BPC, S/4 AE
 
-ZBPC_DIM_APP_BPC11 : this one (with some other coming soon) will turn BPC11 into a full SQL engine 
+Added SQL_ON_RSDDSTAT_OLAP.sql
 
-* ABAP CDS ZBPC_DIM_APPL describes BPC Models
+Allows to get Query Statistics in S/4 from Analytical Engine : Abap CDS based or BMT Based ex. on Multi/Virtual Providers such as /ERP/SFIN_V20.
+Use RSRTS_ODP_DIS to find out bottlenecks
 
-* Table Function on ZBPC_DIM_APPL returns list of fields to build a CDS view or a TF 
+HRP1001_RELATIONSHIP.sql
 
-* SE38 ZBPC_DIM_APP returns the list of fields(to build CDS View or AMDP/TF)
-
-* Next step will be to generate automatically if any change occured on BPC model, the Class and TF with Code Composer
+Browse HHR OM structure to find out what relationships have been built
