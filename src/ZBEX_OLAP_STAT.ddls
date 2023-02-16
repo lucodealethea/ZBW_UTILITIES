@@ -1,0 +1,18 @@
+@AbapCatalog.sqlViewName: 'ZVBEX_OLAP_STAT'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Max Runtime S/4 Analytical EngineQueries'
+define view ZBEX_OLAP_STAT
+//current year only
+as select from ZBEX_TF_OLAP_STAT(p_curyear: 'X', p_calyear: ' ' )
+{
+SQLNAMECUBE,
+RSDDSTAT_OLAP_INFOPROVIDER,
+BW_QUERY,
+SQLNAMEQUERY,
+RSDDSTAT_OLAP_OBJNAME,
+CALYEAR,
+TIMEOLAP,
+TIMEDM
+}
