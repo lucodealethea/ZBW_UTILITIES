@@ -7,6 +7,8 @@ DROP VIEW "_SYS_BIC"."system-local.bw.bw2hana.cpmb/ZBPC<BPC_MODEL>_<VIEW_TYPE>";
 CREATE COLUMN VIEW "_SYS_BIC"."system-local.bw.bw2hana.cpmb/ZBPC<BPC_MODEL>_<VIEW_TYPE>" WITH PARAMETERS (indexType=11,
 'PARENTCALCINDEXSCHEMA'='SAPHANADB','PARENTCALCINDEX'='<BPC_CALC_SCENARIO>','PARENTCALCNODE'='/CPMB/ZOIGDZO$ADSO')
 
+https://blogs.sap.com/2013/08/17/loading-data-into-hana-using-rfc/
+
 */
 
 The SQL is generated with the last SELECT at the bottom with
