@@ -1,6 +1,8 @@
 # ZBW_UTILITIES
-Get the dependency tree in BW/4 for objects such as Calculation Views: 
-the same functionality for DataSphere as SQL Scripted View after virtualizing the SYS.OBJECTS in a dedicated SPACE; 
+Get the dependency tree ( CREATE_OR_REPLACE_FUNCTION GET_OBJECT_DEPENDENCIES.sql) in BW/4 for objects such as Calculation Views.
+
+Get the dependency tree in DataSphere ( DSP_OBJECT_DEPENDENCIES_TREE_ORIG_SCRIPT.sql )
+as SQL Scripted View after virtualizing the SYS.OBJECTS in a dedicated SPACE; 
 or simply with a SQL Script in SAP HANA Data Explorer accessible in SAP DataSphere.
 
 Utilities such as views in BW or BPC, S/4 AE
