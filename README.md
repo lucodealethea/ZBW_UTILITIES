@@ -1,4 +1,8 @@
 # ZBW_UTILITIES
+Get the dependency tree in BW/4 for objects such as Calculation Views: 
+the same functionality for DataSphere as SQL Scripted View after virtualizing the SYS.OBJECTS in a dedicated SPACE; 
+or simply with a SQL Script in SAP HANA Data Explorer accessible in SAP DataSphere.
+
 Utilities such as views in BW or BPC, S/4 AE
 
 Added SQL_ON_RSDDSTAT_OLAP.sql
