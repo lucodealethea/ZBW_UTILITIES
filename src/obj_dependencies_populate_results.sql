@@ -1,4 +1,4 @@
-DROP TABLE resa_objects_dep_results;
+DROP TABLE xxx_objects_dep_results;
 CREATE TABLE xxx_objects_dep_results (
     ROW_NUM INTEGER,
     SCHEMA_NAME NVARCHAR(256) ,
