@@ -1,22 +1,43 @@
 /*
-
 [DESCRIPTION]
+- ORIG_SCRIPT_OBJ_DEP is a enhanced copy/paste from  Script Delivered by SAP in SAP OSS 1969700
+- Search CTRL-F for "Modification Section" (s) and Replace according to Wild Card and your needs
+- examples with SPACE001 and AM_REVASSUR_02 VG_ISU_MASTERDATA_FACT VF_XXX_MD_ISU SPACE001M §AM_ISU_MASTERDATA_01§AM_ISU_MASTERDATA_01 §AM_Sales§_Transaction_Date
+Object dependency Tree with recursion up to 14 levels, based on OSS 1969700
+[INVOLVED TABLES]
+- OBJECT_DEPENDENCIES
+[INPUT PARAMETERS]
+- SCHEMA_NAME
+Name of main schema
+'SPACE001%' --> Main schema name like SPACE001% Can be 'SPACE%'
+ '%' --> Any main schema name
+- OBJECT_NAME
+ Name of main object
+ 'VG_ISU_INSTALL_VF_02%' --> Main object name VG_ISU_INSTALL_VF_02
+ '%' --> Any main object name
+- INCLUDE_SIZE_INFORMATION
+ Possibility to include size information in output if dependant objects are not virtual
 
-- This Script is a mere copy/paste from  Script Delivered by SAP in SAP OSS 1969700
-- Executable in SAP HANA Data Explorer for example in a SAP DataSphere Instance 
-- Maintainability up to release HANA 2.0 SPS8
+ 'X' --> Include size information
+ ' ' --> Suppress size information
+SQNR	ROW_NUM	SCHEMA_NAME	OBJECT_NAME	LVL	DEPENDENT_OBJECT
+1	1	SPACE001	VG_ISU_INSTALL_VF_02 	  1	VG_ISU_INSTALL_VF_02_$PV 	VIEW                                                                                                                                                            
+2	2	SPACE001	VG_ISU_INSTALL_VF_02 	  2	  VG_ISU_INSTALL_VF_02_$PT1 	TABLE, 0.13 GB           
+7	1	SPACE001	VG_ISU_INSTALL_VF_02_$PV 	  1	VG_ISU_INSTALL_VF_02_$PV 	VIEW 
+...
 */
 
 WITH 
 
 BASIS_INFO AS
-(    SELECT                /* Modification section 0BW:BIA:CP_PAN_6H_V3 /BIC/VCP_PAN_6H_V38*/
-    "SCHEMA_NAME",
-    "OBJECT_NAME",
-    'X' AS "INCLUDE_SIZE_INFORMATION",
-    2 AS "INDENT_LENGTH"
-    FROM "SYS"."OBJECTS"
-    WHERE SCHEMA_NAME = 'SPACE001' AND OBJECT_NAME = 'VG_ISU_MASTERDATA_FACT' /*AM_REVASSUR_02 VG_ISU_MASTERDATA_FACT BW_DSP_LINEAGE_AUDIT*/
+(    SELECT                /* Modification section */
+    ? as SCHEMA_NAME,
+    ? AS OBJECT_NAME,
+    'X' INCLUDE_SIZE_INFORMATION,
+    2 INDENT_LENGTH
+  FROM
+    SYS.DUMMY
+
 )
 ,
 OD AS
@@ -816,4 +837,39 @@ ORDER BY
 SELECT * FROM OD WHERE BASE_SCHEMA_NAME = 'SYS' AND BASE_OBJECT_NAME = 'VG_ISU_INSTALL_VF_02';
 SELECT SCHEMA_NAME, OBJECT_NAME, LVL, DEPENDENT_OBJECT FROM TEMP;
 */
-SELECT ROW_NUM, SCHEMA_NAME, OBJECT_NAME, LVL, DEPENDENT_OBJECT FROM TEMP;
+,
+DIST_SCHEMA_OBJ AS
+(
+SELECT
+ DISTINCT "SCHEMA_NAME", "OBJECT_NAME"
+ FROM TEMP
+ WHERE "SCHEMA_NAME" <> '' AND "OBJECT_NAME" <> ''
+)
+,
+DEPENDENT_OBJECT_1 AS 
+( 
+SELECT
+ R.ROW_NUM,
+ D.SCHEMA_NAME,
+ D.OBJECT_NAME,
+ R.LVL,
+ R.DEPENDENT_OBJECT
+FROM TEMP AS R CROSS JOIN DIST_SCHEMA_OBJ AS D
+ORDER BY R.ROW_NUM ASC
+)
+,
+DEPENDENT_OBJECT_2 AS 
+( 
+SELECT
+ROW_NUMBER() OVER (PARTITION BY SCHEMA_NAME ORDER BY SCHEMA_NAME, OBJECT_NAME, ROW_NUM ) AS SQNR,
+ROW_NUM, 
+SCHEMA_NAME, 
+SUBSTRING(OBJECT_NAME,1,LOCATE(OBJECT_NAME,CHAR(40),1)-1) AS OBJECT_NAME, 
+LVL, 
+REPLACE(REPLACE(DEPENDENT_OBJECT,CHAR(40),CHAR(9)),CHAR(41),'') AS DEPENDENT_OBJECT 
+FROM DEPENDENT_OBJECT_1 
+ORDER BY SCHEMA_NAME, OBJECT_NAME, ROW_NUM, LVL
+)
+SELECT SQNR, ROW_NUM, 
+SCHEMA_NAME, OBJECT_NAME, LVL, DEPENDENT_OBJECT
+FROM DEPENDENT_OBJECT_2 AS D2 ;
